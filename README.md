@@ -1,6 +1,6 @@
 # 术数排盘 Web MVP
 
-按 milestone 逐步开发，不一次性塞完整排盘逻辑。当前状态：Milestone 0。
+按 milestone 逐步开发，不一次性塞完整排盘逻辑。当前状态：Milestone 1。
 
 ## 结构
 
@@ -30,6 +30,21 @@ npm.cmd run dev
 cd backend
 .\.venv\Scripts\python -m pytest
 ```
+
+## API
+
+- `GET /api/health`: 后端健康检查
+- `POST /api/liuyao/manual`: 手动六爻排盘
+
+示例：
+
+```json
+{
+  "manual_lines": [7, 8, 9, 6, 7, 8]
+}
+```
+
+`manual_lines` 按自下而上输入，即初爻到上爻。当前只输出本卦、变卦、动爻和 `debug_trace`。
 
 ## Milestones
 
