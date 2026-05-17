@@ -1,0 +1,169 @@
+:root {
+  color: #1d2430;
+  background: #f4f6f8;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.shell {
+  width: min(920px, 100%);
+  display: grid;
+  gap: 18px;
+  background: #fff;
+  border: 1px solid #dde4ec;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(20, 31, 45, 0.08);
+}
+
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #165dbb;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+p {
+  margin: 0;
+  color: #607080;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+.status-ok {
+  border-color: #a8d5bd;
+  background: #f1fbf5;
+  color: #116137;
+}
+
+.status-error {
+  border-color: #f2b8b5;
+  background: #fff4f2;
+  color: #b42318;
+}
+
+.status strong,
+.status span {
+  display: block;
+}
+
+.status span {
+  margin-top: 4px;
+}
+
+.milestones {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.milestone {
+  min-height: 84px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  border: 1px solid #dde4ec;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.milestone strong {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8edf3;
+}
+
+.milestone span {
+  color: #536170;
+  font-size: 13px;
+}
+
+.milestone.active {
+  border-color: #2770d8;
+  background: #eef5ff;
+}
+
+.milestone.active strong {
+  background: #165dbb;
+  color: #fff;
+}
+
+button {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 14px;
+  background: #165dbb;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .milestones {
+    grid-template-columns: 1fr;
+  }
+
+  header {
+    display: grid;
+  }
+}
