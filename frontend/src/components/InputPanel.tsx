@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { RotateCcw, Send } from 'lucide-react';
-import { calculateLiurenV1, calculateManualLiuyao, type ChartMode, type ChartResult } from '../calculators';
+import type { AppMode, AppResult } from '../appTypes';
+import { calculateLiurenV1, calculateManualLiuyao } from '../calculators';
+import { calculateXiaoLiuren, XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
 
 const LINE_OPTIONS = [
   { value: 6, label: '6 老阴', hint: '阴动' },
@@ -17,9 +19,9 @@ function localDateTimeInput() {
 }
 
 type InputPanelProps = {
-  mode: ChartMode;
-  onModeChange: (mode: ChartMode) => void;
-  onResult: (result: ChartResult) => void;
+  mode: AppMode;
+  onModeChange: (mode: AppMode) => void;
+  onResult: (result: AppResult) => void;
   onClear: () => void;
 };
 
@@ -28,6 +30,10 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
   const [timezone, setTimezone] = useState('Asia/Shanghai');
   const [questionText, setQuestionText] = useState('');
   const [manualLines, setManualLines] = useState([7, 8, 7, 8, 7, 8]);
+  const [xiaoMethod, setXiaoMethod] = useState<XiaoLiurenMethod>('time');
+  const [manualLunarMonth, setManualLunarMonth] = useState(1);
+  const [manualLunarDay, setManualLunarDay] = useState(1);
+  const [manualHourBranch, setManualHourBranch] = useState('子');
   const [error, setError] = useState('');
 
   function clearForm() {
@@ -35,6 +41,10 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
     setTimezone('Asia/Shanghai');
     setQuestionText('');
     setManualLines([7, 8, 7, 8, 7, 8]);
+    setXiaoMethod('time');
+    setManualLunarMonth(1);
+    setManualLunarDay(1);
+    setManualHourBranch('子');
     setError('');
     onClear();
   }
@@ -43,7 +53,23 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
     event.preventDefault();
     setError('');
     try {
-      const result = mode === 'liuren' ? calculateLiurenV1(questionTime, timezone) : calculateManualLiuyao(manualLines);
+      const result =
+        mode === 'liuren'
+          ? calculateLiurenV1(questionTime, timezone)
+          : mode === 'liuyao'
+            ? calculateManualLiuyao(manualLines)
+            : calculateXiaoLiuren(
+                xiaoMethod === 'time'
+                  ? { method: 'time', questionTime, timezone, questionText }
+                  : {
+                      method: 'manual',
+                      timezone,
+                      questionText,
+                      lunarMonth: manualLunarMonth,
+                      lunarDay: manualLunarDay,
+                      hourBranch: manualHourBranch,
+                    },
+              );
       onResult(result);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -58,6 +84,15 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
         </button>
         <button type="button" role="tab" aria-selected={mode === 'liuyao'} className={mode === 'liuyao' ? 'active' : ''} onClick={() => onModeChange('liuyao')}>
           六爻
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'xiaoliuren'}
+          className={mode === 'xiaoliuren' ? 'active' : ''}
+          onClick={() => onModeChange('xiaoliuren')}
+        >
+          小六壬
         </button>
       </div>
 
@@ -77,7 +112,7 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
               <textarea value={questionText} onChange={(event) => setQuestionText(event.target.value)} rows={4} placeholder="可选，仅用于记录问题，不参与排盘计算。" />
             </label>
           </>
-        ) : (
+        ) : mode === 'liuyao' ? (
           <div className="line-grid">
             {manualLines.map((line, index) => (
               <label className="line-select" key={index}>
@@ -96,6 +131,60 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
               </label>
             ))}
           </div>
+        ) : (
+          <>
+            <label className="field">
+              <span>问题文本</span>
+              <textarea value={questionText} onChange={(event) => setQuestionText(event.target.value)} rows={4} placeholder="可选，用于记录起课问题。" />
+            </label>
+            <div className="method-toggle" role="radiogroup" aria-label="小六壬起课方式">
+              <button type="button" className={xiaoMethod === 'time' ? 'active' : ''} onClick={() => setXiaoMethod('time')}>
+                时间起课
+              </button>
+              <button type="button" className={xiaoMethod === 'manual' ? 'active' : ''} onClick={() => setXiaoMethod('manual')}>
+                手动农历月日时
+              </button>
+            </div>
+            {xiaoMethod === 'time' ? (
+              <>
+                <label className="field">
+                  <span>公历日期时间</span>
+                  <input type="datetime-local" value={questionTime} onChange={(event) => setQuestionTime(event.target.value)} required />
+                </label>
+                <label className="field">
+                  <span>时区</span>
+                  <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+                </label>
+              </>
+            ) : (
+              <>
+                <div className="form-grid two">
+                  <label className="field">
+                    <span>农历月</span>
+                    <input type="number" min={1} max={12} value={manualLunarMonth} onChange={(event) => setManualLunarMonth(Number(event.target.value))} required />
+                  </label>
+                  <label className="field">
+                    <span>农历日</span>
+                    <input type="number" min={1} max={30} value={manualLunarDay} onChange={(event) => setManualLunarDay(Number(event.target.value))} required />
+                  </label>
+                </div>
+                <label className="field">
+                  <span>时辰</span>
+                  <select value={manualHourBranch} onChange={(event) => setManualHourBranch(event.target.value)}>
+                    {XIAOLIUREN_HOUR_BRANCHES.map((branch) => (
+                      <option value={branch} key={branch}>
+                        {branch}时
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>时区</span>
+                  <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+                </label>
+              </>
+            )}
+          </>
         )}
 
         <div className="button-row">

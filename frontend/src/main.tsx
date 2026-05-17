@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { ChartMode, ChartResult } from './calculators';
+import type { AppMode, AppResult } from './appTypes';
 import { InputPanel } from './components/InputPanel';
 import { Layout } from './components/Layout';
 import { ResultPanel } from './components/ResultPanel';
 import './styles.css';
 
 function App() {
-  const [mode, setMode] = useState<ChartMode>('liuren');
-  const [result, setResult] = useState<ChartResult | null>(null);
+  const [mode, setMode] = useState<AppMode>('liuren');
+  const [result, setResult] = useState<AppResult | null>(null);
 
   return (
     <Layout>

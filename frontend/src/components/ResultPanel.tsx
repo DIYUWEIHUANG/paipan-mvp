@@ -1,10 +1,12 @@
 import { Braces } from 'lucide-react';
-import type { ChartResult, Hexagram, LiurenResult, LiuYaoResult } from '../calculators';
+import type { AppResult } from '../appTypes';
+import type { Hexagram, LiurenResult, LiuYaoResult } from '../calculators';
+import type { XiaoLiurenResult } from '../engines/xiaoliuren';
 import { JsonViewer } from './JsonViewer';
 import { SummaryCard } from './SummaryCard';
 
 type ResultPanelProps = {
-  result: ChartResult | null;
+  result: AppResult | null;
 };
 
 function HexagramView({ title, hexagram }: { title: string; hexagram: Hexagram }) {
@@ -124,6 +126,56 @@ function LiurenView({ result }: { result: LiurenResult }) {
   );
 }
 
+function XiaoLiurenView({ result }: { result: XiaoLiurenResult }) {
+  return (
+    <>
+      <SummaryCard
+        title="摘要"
+        items={[
+          { label: '最终宫位', value: result.final_palace },
+          { label: '农历', value: `${result.lunar.month_text}月 ${result.lunar.day_text}` },
+          { label: '时辰', value: `${result.lunar.hour_branch}时` },
+        ]}
+      />
+      <section className="surface result-section">
+        <div className="section-title">
+          <h2>小六壬排盘</h2>
+          <span>{result.input.method === 'time' ? '时间起课' : '手动农历月日时'}</span>
+        </div>
+        <div className="palace-order">
+          {result.palace_order.map((palace) => (
+            <div className={palace === result.final_palace ? 'palace-pill active' : 'palace-pill'} key={palace}>
+              {palace}
+            </div>
+          ))}
+        </div>
+        <div className="step-grid">
+          {result.steps.map((step, index) => (
+            <article className="sub-card step-card" key={step.step}>
+              <span>第 {index + 1} 步</span>
+              <strong>{step.label}</strong>
+              <p>{step.rule}</p>
+              <div>
+                {step.start_palace} → {step.result_palace}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="surface result-section">
+        <div className="section-title">
+          <h2>基础推断</h2>
+          <span>{result.basic_inference.title}</span>
+        </div>
+        <div className="inference-card">
+          <strong>{result.basic_inference.tendency}</strong>
+          <p>{result.basic_inference.suggestion}</p>
+        </div>
+      </section>
+    </>
+  );
+}
+
 function EmptyState() {
   return (
     <section className="surface empty-state">
@@ -141,7 +193,7 @@ export function ResultPanel({ result }: ResultPanelProps) {
 
   return (
     <section className="result-panel">
-      {result.type === 'liu_yao' ? <LiuYaoView result={result} /> : <LiurenView result={result} />}
+      {result.type === 'liu_yao' ? <LiuYaoView result={result} /> : result.type === 'xiao_liuren' ? <XiaoLiurenView result={result} /> : <LiurenView result={result} />}
       <section className="surface result-section">
         <div className="section-title">
           <h2>Debug Trace</h2>

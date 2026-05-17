@@ -93,7 +93,7 @@ button {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 20px;
   border-radius: 12px;
@@ -119,6 +119,36 @@ button {
 form {
   display: grid;
   gap: 16px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.form-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.method-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.method-toggle button {
+  min-height: 40px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #475467;
+  font-weight: 650;
+}
+
+.method-toggle button.active {
+  border-color: #164e63;
+  background: #ecf5f6;
+  color: #164e63;
 }
 
 .field {
@@ -353,6 +383,84 @@ dd {
   gap: 12px;
 }
 
+.palace-order {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.palace-pill {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fbfbfa;
+  color: #475467;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.palace-pill.active {
+  border-color: #164e63;
+  background: #164e63;
+  color: #ffffff;
+}
+
+.step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.step-card {
+  display: grid;
+  gap: 8px;
+}
+
+.step-card span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.step-card strong {
+  color: #17212b;
+}
+
+.step-card p {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.step-card div {
+  color: #164e63;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.inference-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fbfbfa;
+  padding: 14px;
+}
+
+.inference-card strong {
+  color: #17212b;
+  line-height: 1.6;
+}
+
+.inference-card p {
+  margin: 0;
+  color: #667085;
+  line-height: 1.65;
+}
+
 .sub-card {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -530,11 +638,13 @@ dd {
   .summary-grid,
   .hexagram-grid,
   .lesson-grid,
-  .transmission-grid {
+  .transmission-grid,
+  .step-grid {
     grid-template-columns: 1fr;
   }
 
-  .plate-grid {
+  .plate-grid,
+  .palace-order {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
@@ -549,7 +659,9 @@ dd {
   }
 
   .button-row,
-  .line-select {
+  .line-select,
+  .form-grid.two,
+  .method-toggle {
     grid-template-columns: 1fr;
   }
 
@@ -557,7 +669,8 @@ dd {
     text-align: left;
   }
 
-  .plate-grid {
+  .plate-grid,
+  .palace-order {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
