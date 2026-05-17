@@ -66,7 +66,6 @@ p {
   padding: 0 12px;
   background: #fff;
   color: #526170;
-  cursor: pointer;
 }
 
 .health-ok {
@@ -198,6 +197,30 @@ select {
 
 .error {
   color: #b42318;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #fff;
+  color: #526170;
+  cursor: pointer;
 }
 
 .result-panel {
@@ -402,6 +425,16 @@ dd {
 
 .spin {
   animation: spin 0.9s linear infinite;
+}
+
+footer {
+  max-width: 1180px;
+  margin: 16px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #697687;
+  font-size: 13px;
 }
 
 @keyframes spin {

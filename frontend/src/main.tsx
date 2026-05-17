@@ -1,91 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Braces, CalendarDays, CheckCircle2, RefreshCw, Send, XCircle } from 'lucide-react';
+import { Braces, CalendarDays, CheckCircle2, Copy, RefreshCw, Send } from 'lucide-react';
+import {
+  calculateLiurenV1,
+  calculateManualLiuyao,
+  type ChartMode,
+  type ChartResult,
+  type Hexagram,
+  type LiurenResult,
+  type LiuYaoResult,
+} from './calculators';
 import './styles.css';
-
-type ChartMode = 'liuyao' | 'liuren';
-
-type HealthState = {
-  status: 'idle' | 'loading' | 'ok' | 'error';
-  message: string;
-};
-
-type LineState = {
-  position: number;
-  value: number;
-  polarity: 'yin' | 'yang';
-  moving: boolean;
-  display: string;
-};
-
-type Hexagram = {
-  number: number;
-  name: string;
-  upper_trigram: string;
-  lower_trigram: string;
-  lines: LineState[];
-};
-
-type LiuYaoResult = {
-  type: 'liu_yao';
-  milestone: number;
-  input: {
-    method: 'manual';
-    manual_lines: number[];
-    line_order: 'bottom_to_top';
-  };
-  base_hexagram: Hexagram;
-  changed_hexagram: Hexagram;
-  moving_lines: number[];
-  debug_trace: string[];
-};
-
-type LiurenResult = {
-  type: 'da_liuren';
-  milestone: number;
-  input: {
-    question_time: string;
-    timezone: string;
-  };
-  localized_datetime: string;
-  four_pillars: Record<'year' | 'month' | 'day' | 'hour', string>;
-  xunkong: string[];
-  month_general: {
-    branch: string;
-    source_qi: string;
-    source_qi_time: string;
-  };
-  tian_di_pan: Array<{
-    index: number;
-    earth: string;
-    heaven: string;
-  }>;
-  four_lessons: {
-    status: 'reserved' | 'computed';
-    items: Array<{
-      index: number;
-      label: string;
-      upper: string;
-      lower: string;
-      relation: string;
-      upper_element: string;
-      lower_element: string;
-    }>;
-  };
-  three_transmissions: {
-    status: 'reserved' | 'computed';
-    gate?: string;
-    variant?: string;
-    items: Array<{
-      index: number;
-      stage: string;
-      branch: string;
-    }>;
-  };
-  debug_trace: string[];
-};
-
-type ChartResult = LiuYaoResult | LiurenResult;
 
 const LINE_OPTIONS = [
   { value: 6, label: '6 老阴', hint: '阴动' },
@@ -101,14 +26,12 @@ function localDateTimeInput() {
   return local.toISOString().slice(0, 16);
 }
 
-function HealthBadge({ health, onRefresh }: { health: HealthState; onRefresh: () => void }) {
+function StatusBadge() {
   return (
-    <button className={`health health-${health.status}`} type="button" onClick={onRefresh} title="检查后端连接">
-      {health.status === 'ok' && <CheckCircle2 size={18} aria-hidden="true" />}
-      {health.status === 'error' && <XCircle size={18} aria-hidden="true" />}
-      {health.status !== 'ok' && health.status !== 'error' && <RefreshCw className={health.status === 'loading' ? 'spin' : ''} size={18} aria-hidden="true" />}
-      <span>{health.message}</span>
-    </button>
+    <div className="health health-ok" title="纯前端静态版本，可部署到 GitHub Pages">
+      <CheckCircle2 size={18} aria-hidden="true" />
+      <span>静态网页</span>
+    </div>
   );
 }
 
@@ -123,7 +46,10 @@ function HexagramView({ title, hexagram }: { title: string; hexagram: Hexagram }
         {[...hexagram.lines].reverse().map((line) => (
           <div className="yao-line" key={line.position}>
             <span>{line.display}</span>
-            <small>{line.position}{line.moving ? ' 动' : ''}</small>
+            <small>
+              {line.position}
+              {line.moving ? ' 动' : ''}
+            </small>
           </div>
         ))}
       </div>
@@ -148,24 +74,14 @@ function HexagramView({ title, hexagram }: { title: string; hexagram: Hexagram }
 function LiuYaoForm({ onResult }: { onResult: (result: ChartResult) => void }) {
   const [manualLines, setManualLines] = useState([7, 8, 7, 8, 7, 8]);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  async function submitManual(event: React.FormEvent) {
+  function submitManual(event: React.FormEvent) {
     event.preventDefault();
-    setSubmitting(true);
     setError('');
     try {
-      const response = await fetch('/api/liuyao/manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manual_lines: manualLines }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      onResult((await response.json()) as LiuYaoResult);
+      onResult(calculateManualLiuyao(manualLines));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -175,17 +91,22 @@ function LiuYaoForm({ onResult }: { onResult: (result: ChartResult) => void }) {
         {manualLines.map((line, index) => (
           <label className="line-select" key={index}>
             <span>第 {index + 1} 爻</span>
-            <select value={line} onChange={(event) => setManualLines(manualLines.map((value, valueIndex) => (valueIndex === index ? Number(event.target.value) : value)))}>
+            <select
+              value={line}
+              onChange={(event) => setManualLines(manualLines.map((value, valueIndex) => (valueIndex === index ? Number(event.target.value) : value)))}
+            >
               {LINE_OPTIONS.map((option) => (
-                <option value={option.value} key={option.value}>{option.label}</option>
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
             <small>{LINE_OPTIONS.find((option) => option.value === line)?.hint}</small>
           </label>
         ))}
       </div>
-      <button className="primary" type="submit" disabled={submitting}>
-        {submitting ? <RefreshCw className="spin" size={18} aria-hidden="true" /> : <Send size={18} aria-hidden="true" />}
+      <button className="primary" type="submit">
+        <Send size={18} aria-hidden="true" />
         生成六爻盘
       </button>
       {error && <p className="error">{error}</p>}
@@ -197,24 +118,14 @@ function LiurenForm({ onResult }: { onResult: (result: ChartResult) => void }) {
   const [questionTime, setQuestionTime] = useState(localDateTimeInput());
   const [timezone, setTimezone] = useState('Asia/Shanghai');
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  async function submitLiuren(event: React.FormEvent) {
+  function submitLiuren(event: React.FormEvent) {
     event.preventDefault();
-    setSubmitting(true);
     setError('');
     try {
-      const response = await fetch('/api/liuren/v1', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question_time: questionTime, timezone }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      onResult((await response.json()) as LiurenResult);
+      onResult(calculateLiurenV1(questionTime, timezone));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -228,8 +139,8 @@ function LiurenForm({ onResult }: { onResult: (result: ChartResult) => void }) {
         <span>时区</span>
         <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
       </label>
-      <button className="primary" type="submit" disabled={submitting}>
-        {submitting ? <RefreshCw className="spin" size={18} aria-hidden="true" /> : <CalendarDays size={18} aria-hidden="true" />}
+      <button className="primary" type="submit">
+        <CalendarDays size={18} aria-hidden="true" />
         生成大六壬 V1
       </button>
       {error && <p className="error">{error}</p>}
@@ -296,7 +207,9 @@ function LiurenResultView({ result }: { result: LiurenResult }) {
         </div>
         <div>
           <span>月将</span>
-          <strong>{result.month_general.branch} · {result.month_general.source_qi}</strong>
+          <strong>
+            {result.month_general.branch} · {result.month_general.source_qi}
+          </strong>
         </div>
       </div>
       <section>
@@ -316,8 +229,13 @@ function LiurenResultView({ result }: { result: LiurenResult }) {
           {result.four_lessons.items.map((lesson) => (
             <div className="lesson-card" key={lesson.label}>
               <span>{lesson.label}</span>
-              <strong>{lesson.upper} / {lesson.lower}</strong>
-              <small>{lesson.relation} · {lesson.upper_element}{lesson.lower_element}</small>
+              <strong>
+                {lesson.upper} / {lesson.lower}
+              </strong>
+              <small>
+                {lesson.relation} · {lesson.upper_element}
+                {lesson.lower_element}
+              </small>
             </div>
           ))}
         </div>
@@ -339,6 +257,12 @@ function LiurenResultView({ result }: { result: LiurenResult }) {
 
 function ResultPanel({ result }: { result: ChartResult | null }) {
   const json = useMemo(() => (result ? JSON.stringify(result, null, 2) : ''), [result]);
+
+  async function copyJson() {
+    if (!json) return;
+    await navigator.clipboard.writeText(json);
+  }
+
   if (!result) {
     return (
       <div className="empty">
@@ -356,7 +280,12 @@ function ResultPanel({ result }: { result: ChartResult | null }) {
         <pre className="trace">{result.debug_trace.join('\n')}</pre>
       </section>
       <section>
-        <h2>原始 JSON</h2>
+        <div className="section-head">
+          <h2>原始 JSON</h2>
+          <button className="icon-button" type="button" onClick={() => void copyJson()} title="复制 JSON">
+            <Copy size={16} aria-hidden="true" />
+          </button>
+        </div>
         <pre className="json">{json}</pre>
       </section>
     </div>
@@ -365,48 +294,32 @@ function ResultPanel({ result }: { result: ChartResult | null }) {
 
 function App() {
   const [mode, setMode] = useState<ChartMode>('liuren');
-  const [health, setHealth] = useState<HealthState>({
-    status: 'idle',
-    message: '未检查',
-  });
   const [result, setResult] = useState<ChartResult | null>(null);
-
-  async function checkHealth() {
-    setHealth({ status: 'loading', message: '检查中' });
-    try {
-      const response = await fetch('/api/health');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = (await response.json()) as { status: string };
-      setHealth({ status: 'ok', message: data.status });
-    } catch (caught) {
-      setHealth({ status: 'error', message: caught instanceof Error ? caught.message : String(caught) });
-    }
-  }
-
-  useEffect(() => {
-    void checkHealth();
-  }, []);
 
   return (
     <main className="app">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Milestone 3</p>
-          <h1>排盘 MVP</h1>
-          <p>六爻手动 MVP 与大六壬 V1；不做断语。</p>
+          <p className="eyebrow">Milestone 3 · Browser Edition</p>
+          <h1>术数排盘 MVP</h1>
+          <p>六爻手动 MVP 与大六壬 V1；仅排盘展示，不做断语。</p>
         </div>
-        <HealthBadge health={health} onRefresh={() => void checkHealth()} />
+        <StatusBadge />
       </header>
 
       <div className="layout">
         <section className="panel input-panel">
           <div className="tabs">
-            <button type="button" className={mode === 'liuren' ? 'active' : ''} onClick={() => setMode('liuren')}>大六壬</button>
-            <button type="button" className={mode === 'liuyao' ? 'active' : ''} onClick={() => setMode('liuyao')}>六爻</button>
+            <button type="button" className={mode === 'liuren' ? 'active' : ''} onClick={() => setMode('liuren')}>
+              大六壬
+            </button>
+            <button type="button" className={mode === 'liuyao' ? 'active' : ''} onClick={() => setMode('liuyao')}>
+              六爻
+            </button>
           </div>
           <div className="panel-title">
             <strong>{mode === 'liuren' ? '大六壬 V1' : '手动六爻'}</strong>
-            <span>{mode === 'liuren' ? '九宗门三传' : '从初爻到上爻'}</span>
+            <span>{mode === 'liuren' ? '九宗门三传' : '初爻到上爻'}</span>
           </div>
           {mode === 'liuren' ? <LiurenForm onResult={setResult} /> : <LiuYaoForm onResult={setResult} />}
         </section>
@@ -415,6 +328,11 @@ function App() {
           <ResultPanel result={result} />
         </section>
       </div>
+
+      <footer>
+        <RefreshCw size={14} aria-hidden="true" />
+        <span>所有计算在浏览器内完成，适合静态托管和链接分享。</span>
+      </footer>
     </main>
   );
 }

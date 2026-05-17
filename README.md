@@ -1,13 +1,44 @@
 # 术数排盘 Web MVP
 
-按 milestone 逐步开发，不一次性塞完整排盘逻辑。当前状态：Milestone 3。
+当前状态：Milestone 3，已整理为可静态部署的浏览器网页。
 
-## 结构
+## 可分享网页
 
-- `backend/`: Python FastAPI
-- `frontend/`: React + Vite + TypeScript
+前端已经把六爻手动排盘和大六壬 V1 的核心计算放到浏览器内，不再依赖本地 FastAPI 后端。因此可以部署到 GitHub Pages、Netlify、Vercel 或任意静态文件托管。
 
-## 后端启动
+### GitHub Pages 自动部署
+
+本仓库包含 `.github/workflows/pages.yml`。推送到 `main` 后：
+
+1. 打开 GitHub 仓库的 `Settings -> Pages`。
+2. `Build and deployment` 选择 `GitHub Actions`。
+3. 等待 `Deploy static web app` workflow 完成。
+4. 分享 GitHub Pages 生成的链接。
+
+### 本地构建
+
+```powershell
+cd frontend
+npm.cmd install
+npm.cmd run build
+npm.cmd run preview
+```
+
+构建产物在 `frontend/dist/`，也可以直接上传到静态托管服务。
+
+## 项目结构
+
+- `frontend/`: React + Vite + TypeScript 静态网页
+- `frontend/src/calculators.ts`: 浏览器端排盘计算
+- `backend/`: 原 FastAPI 后端，仍可用于接口版本或测试参考
+
+## 功能
+
+- 六爻：手动输入 6/7/8/9，输出本卦、变卦、动爻和 debug trace。
+- 大六壬 V1：输入问事时间，输出四柱、旬空、月将、天地盘、四课、九宗门三传和 debug trace。
+- 页面只做排盘展示，不做断语。
+
+## 后端启动（可选）
 
 ```powershell
 cd backend
@@ -16,55 +47,9 @@ python -m venv .venv
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
 
-## 前端启动
-
-```powershell
-cd frontend
-npm.cmd install
-npm.cmd run dev
-```
-
-## 测试
+## 后端测试（可选）
 
 ```powershell
 cd backend
 .\.venv\Scripts\python -m pytest
 ```
-
-## API
-
-- `GET /api/health`: 后端健康检查
-- `POST /api/liuyao/manual`: 手动六爻排盘
-- `POST /api/liuren/basic`: 大六壬基础盘
-- `POST /api/liuren/v1`: 大六壬 V1，输出四课与九宗门三传
-
-六爻示例：
-
-```json
-{
-  "manual_lines": [7, 8, 9, 6, 7, 8]
-}
-```
-
-`manual_lines` 按自下而上输入，即初爻到上爻。当前只输出本卦、变卦、动爻和 `debug_trace`。
-
-大六壬 V1 示例：
-
-```json
-{
-  "question_time": "2026-05-17T10:30:00",
-  "timezone": "Asia/Shanghai"
-}
-```
-
-V1 输出四柱、旬空、月将、天地盘、四课、九宗门三传和 `debug_trace`。涉害深度当前为 V1 启发式，后续可继续逐课校准。
-
-## Milestones
-
-- Milestone 0: 项目骨架、`/api/health`、前端调用后端
-- Milestone 1: 六爻 MVP，仅手动 6/7/8/9，输出本卦、变卦、动爻
-- Milestone 2: 大六壬基础盘，时间输入，四柱、旬空、月将、天地盘，四课三传预留
-- Milestone 3: 大六壬 V1，九宗门三传判别，每步 debug trace
-- Milestone 4: 前端可视化、JSON 面板、保存问卦记录
-
-参考源会在进入对应 milestone 时再引入和校准，例如 `kentang2017/kinliuren`、`bopo/najia` 等。
