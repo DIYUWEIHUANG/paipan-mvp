@@ -1,4 +1,5 @@
 import { Solar } from 'lunar-javascript';
+import { analyzeDaliurenTiming, type TimingAnalysis } from './engines/timing';
 
 export type ChartMode = 'liuyao' | 'liuren';
 export type LinePolarity = 'yin' | 'yang';
@@ -26,11 +27,75 @@ export type LiuYaoResult = {
     method: 'manual';
     manual_lines: number[];
     line_order: 'bottom_to_top';
+    question_text?: string;
   };
   base_hexagram: Hexagram;
   changed_hexagram: Hexagram;
   moving_lines: number[];
   debug_trace: string[];
+};
+
+export type WuxingRelation = '生' | '克' | '比和' | '泄' | '耗';
+
+export type WuxingPairRelation = {
+  from_label: string;
+  from: string;
+  from_element: string;
+  to_label: string;
+  to: string;
+  to_element: string;
+  relation: WuxingRelation;
+};
+
+export type AskerGender = 'unknown' | 'female' | 'male' | 'other';
+
+export type AskerProfileInput = {
+  gender: AskerGender;
+  birth_time?: string;
+  daymaster?: string;
+};
+
+export type AskerProfile = {
+  gender: AskerGender;
+  daymaster_source: 'manual' | 'birth_time' | 'chart_day_fallback';
+  asker_daymaster: string;
+  asker_element: string;
+  asker_bias: string;
+  chart_bias: string;
+  impact: string;
+  advice: string;
+};
+
+export type QuestionCategory =
+  | 'general'
+  | 'sleep_health'
+  | 'research_project'
+  | 'career'
+  | 'money_resource'
+  | 'relationship'
+  | 'travel'
+  | 'lost_item'
+  | 'decision'
+  | 'exam_learning'
+  | 'communication';
+
+export type QuestionIntent = 'trend' | 'timing_advice' | 'risk_check' | 'go_or_no_go' | 'strategy' | 'diagnosis';
+
+export type QuestionSchema = {
+  questionText: string;
+  questionCategory: QuestionCategory;
+  questionIntent: QuestionIntent;
+};
+
+export type QuestionContext = QuestionSchema & {
+  category_label: string;
+  intent_label: string;
+  class_spirit: string;
+  focus_points: string[];
+  favorable_signals: string[];
+  risk_signals: string[];
+  suggested_action: string;
+  avoid_action: string;
 };
 
 export type LiurenResult = {
@@ -39,6 +104,11 @@ export type LiurenResult = {
   input: {
     question_time: string;
     timezone: string;
+    question_text?: string;
+    questionText?: string;
+    questionCategory?: QuestionCategory;
+    questionIntent?: QuestionIntent;
+    asker?: AskerProfileInput;
   };
   localized_datetime: string;
   four_pillars: Record<'year' | 'month' | 'day' | 'hour', string>;
@@ -75,6 +145,41 @@ export type LiurenResult = {
       branch: string;
     }>;
   };
+  wuxing_relations?: {
+    daymaster: string;
+    daymaster_element: string;
+    initial_relation_to_daymaster: WuxingRelation;
+    middle_relation_to_initial: WuxingRelation;
+    final_relation_to_middle: WuxingRelation;
+    energy_flow: string;
+    overall_pattern: string;
+    daymaster_to_transmissions: Array<{
+      target_stage: string;
+      target_branch: string;
+      target_element: string;
+      relation: WuxingRelation;
+    }>;
+    transmissions_to_daymaster: Array<{
+      stage: string;
+      branch: string;
+      element: string;
+      relation: WuxingRelation;
+    }>;
+    transmission_relations: WuxingPairRelation[];
+    four_lesson_internal_relations: Array<{
+      lesson: string;
+      upper: string;
+      upper_element: string;
+      lower: string;
+      lower_element: string;
+      relation: WuxingRelation;
+    }>;
+    four_lesson_upper_relations: WuxingPairRelation[];
+  };
+  asker_profile?: AskerProfile;
+  question_schema?: QuestionSchema;
+  question_context?: QuestionContext;
+  timing?: TimingAnalysis;
   debug_trace: string[];
 };
 
@@ -173,6 +278,94 @@ const MONTH_GENERAL_BY_QI: Record<string, string> = {
   冬至: '丑',
   大寒: '子',
 };
+const QUESTION_CATEGORIES: Record<QuestionCategory, { label: string; classSpirit: string; focusPoints: string[]; suggestedAction: string; avoidAction: string }> = {
+  general: {
+    label: '综合',
+    classSpirit: '日干/三传',
+    focusPoints: ['整体趋势', '关键阻力', '可借之力'],
+    suggestedAction: '先抓主要矛盾，再决定推进节奏。',
+    avoidAction: '避免只凭单一信号下结论。',
+  },
+  sleep_health: {
+    label: '睡眠健康',
+    classSpirit: '身/病',
+    focusPoints: ['身体消耗', '恢复节律', '压力来源'],
+    suggestedAction: '优先稳住作息和恢复窗口。',
+    avoidAction: '避免继续透支精力。',
+  },
+  research_project: {
+    label: '研究项目',
+    classSpirit: '文书/课题/资源',
+    focusPoints: ['证据链', '资源配合', '阶段推进'],
+    suggestedAction: '先补齐关键证据，再推进下一步。',
+    avoidAction: '避免在证据不足时扩大范围。',
+  },
+  career: {
+    label: '事业职业',
+    classSpirit: '官/职事',
+    focusPoints: ['职责压力', '上级规则', '机会窗口'],
+    suggestedAction: '按规则推进，保留沟通余地。',
+    avoidAction: '避免硬碰硬或越级冒进。',
+  },
+  money_resource: {
+    label: '金钱资源',
+    classSpirit: '财/资源',
+    focusPoints: ['投入产出', '资源占用', '现金压力'],
+    suggestedAction: '先确认成本边界，再做投入。',
+    avoidAction: '避免超预算承诺。',
+  },
+  relationship: {
+    label: '关系',
+    classSpirit: '人际/合冲',
+    focusPoints: ['双方位置', '沟通阻力', '关系张力'],
+    suggestedAction: '先澄清真实诉求，再谈推进。',
+    avoidAction: '避免情绪化回应。',
+  },
+  travel: {
+    label: '出行',
+    classSpirit: '行人/道路',
+    focusPoints: ['路线安排', '时间窗口', '临时变动'],
+    suggestedAction: '提前留出缓冲时间。',
+    avoidAction: '避免赶点和临时改计划。',
+  },
+  lost_item: {
+    label: '失物',
+    classSpirit: '物/所在',
+    focusPoints: ['物品位置', '移动痕迹', '可回收性'],
+    suggestedAction: '按最后接触点向外复查。',
+    avoidAction: '避免盲目扩大搜索范围。',
+  },
+  decision: {
+    label: '决策',
+    classSpirit: '用神/取舍',
+    focusPoints: ['利弊权重', '执行成本', '退出余地'],
+    suggestedAction: '把选择拆成可逆与不可逆部分。',
+    avoidAction: '避免一次性押注。',
+  },
+  exam_learning: {
+    label: '考试学习',
+    classSpirit: '文书/学业',
+    focusPoints: ['吸收效率', '复习重点', '临场稳定'],
+    suggestedAction: '集中处理高频薄弱点。',
+    avoidAction: '避免平均用力。',
+  },
+  communication: {
+    label: '沟通',
+    classSpirit: '口舌/信息',
+    focusPoints: ['信息清晰度', '对方反应', '误解风险'],
+    suggestedAction: '先写清楚边界和请求。',
+    avoidAction: '避免含糊表达。',
+  },
+};
+const QUESTION_INTENTS: Record<QuestionIntent, string> = {
+  trend: '看趋势',
+  timing_advice: '择时建议',
+  risk_check: '风险检查',
+  go_or_no_go: '是否推进',
+  strategy: '策略选择',
+  diagnosis: '原因诊断',
+};
+const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
 const STEM_HOME: Record<string, string> = { 甲: '寅', 乙: '辰', 丙: '巳', 丁: '未', 戊: '巳', 己: '未', 庚: '申', 辛: '戌', 壬: '亥', 癸: '丑' };
 const STEM_COMBINE: Record<string, string> = { 甲: '己', 己: '甲', 乙: '庚', 庚: '乙', 丙: '辛', 辛: '丙', 丁: '壬', 壬: '丁', 戊: '癸', 癸: '戊' };
 const ELEMENT_BY_TOKEN: Record<string, string> = {};
@@ -230,7 +423,7 @@ function buildHexagramFromBits(bits: number[], sourceValues?: number[]): Hexagra
   };
 }
 
-export function calculateManualLiuyao(manualLines: number[]): LiuYaoResult {
+export function calculateManualLiuyao(manualLines: number[], questionText = ''): LiuYaoResult {
   if (manualLines.length !== 6 || manualLines.some((line) => ![6, 7, 8, 9].includes(line))) {
     throw new Error('六爻输入必须正好包含 6 个值，且只能是 6、7、8、9。');
   }
@@ -240,7 +433,7 @@ export function calculateManualLiuyao(manualLines: number[]): LiuYaoResult {
   return {
     type: 'liu_yao',
     milestone: 1,
-    input: { method: 'manual', manual_lines: manualLines, line_order: 'bottom_to_top' },
+    input: { method: 'manual', manual_lines: manualLines, line_order: 'bottom_to_top', question_text: questionText },
     base_hexagram: buildHexagramFromBits(baseBits, manualLines),
     changed_hexagram: buildHexagramFromBits(changedBits),
     moving_lines: movingLines,
@@ -306,6 +499,37 @@ function relationBetween(upper: string, lower: string) {
   throw new Error(`未知五行关系：${upper}/${lower}`);
 }
 
+function wuxingRelationTo(subjectElement: string, objectElement: string): WuxingRelation {
+  if (subjectElement === objectElement) return '比和';
+  if (GENERATES[subjectElement] === objectElement) return '泄';
+  if (GENERATES[objectElement] === subjectElement) return '生';
+  if (CONTROLS[subjectElement] === objectElement) return '克';
+  if (CONTROLS[objectElement] === subjectElement) return '耗';
+  throw new Error(`未知五行关系：${subjectElement}/${objectElement}`);
+}
+
+function wuxingPairRelation(fromLabel: string, from: string, toLabel: string, to: string): WuxingPairRelation {
+  const fromElement = ELEMENT_BY_TOKEN[from];
+  const toElement = ELEMENT_BY_TOKEN[to];
+  return {
+    from_label: fromLabel,
+    from,
+    from_element: fromElement,
+    to_label: toLabel,
+    to,
+    to_element: toElement,
+    relation: wuxingRelationTo(fromElement, toElement),
+  };
+}
+
+function overallWuxingPattern(elements: string[]) {
+  if (elements[0] === elements[1] && elements[1] === elements[2]) return '三传比和';
+  if (GENERATES[elements[0]] === elements[1] && GENERATES[elements[1]] === elements[2]) return '连续相生';
+  if (CONTROLS[elements[0]] === elements[1] && CONTROLS[elements[1]] === elements[2]) return '连续相克';
+  if (elements[0] === elements[2] && elements[0] !== elements[1]) return '首末同气';
+  return '生克混杂';
+}
+
 function buildFourLessons(dayGanzhi: string, plate: ReturnType<typeof buildTianDiPan>) {
   const sky = plateMap(plate);
   const dayStem = dayGanzhi[0];
@@ -339,6 +563,198 @@ function uniqueByUpper<T extends { upper: string }>(candidates: T[]) {
 function chainThreeTransmissions(first: string, plate: ReturnType<typeof buildTianDiPan>) {
   const sky = plateMap(plate);
   return [first, sky[first], sky[sky[first]]];
+}
+
+function analyzeWuxingRelations(dayGanzhi: string, threeTransmissions: ReturnType<typeof decideThreeTransmissions>['items'], fourLessons: ReturnType<typeof buildFourLessons>) {
+  const daymaster = dayGanzhi[0];
+  const daymasterElement = ELEMENT_BY_TOKEN[daymaster];
+  const transmissions = threeTransmissions.map((item) => ({
+    ...item,
+    element: ELEMENT_BY_TOKEN[item.branch],
+  }));
+  const [initial, middle, final] = transmissions;
+  const energyFlowElements = transmissions.map((item) => item.element);
+
+  return {
+    daymaster,
+    daymaster_element: daymasterElement,
+    initial_relation_to_daymaster: wuxingRelationTo(initial.element, daymasterElement),
+    middle_relation_to_initial: wuxingRelationTo(middle.element, initial.element),
+    final_relation_to_middle: wuxingRelationTo(final.element, middle.element),
+    energy_flow: energyFlowElements.join(' -> '),
+    overall_pattern: overallWuxingPattern(energyFlowElements),
+    daymaster_to_transmissions: transmissions.map((item) => ({
+      target_stage: item.stage,
+      target_branch: item.branch,
+      target_element: item.element,
+      relation: wuxingRelationTo(daymasterElement, item.element),
+    })),
+    transmissions_to_daymaster: transmissions.map((item) => ({
+      stage: item.stage,
+      branch: item.branch,
+      element: item.element,
+      relation: wuxingRelationTo(item.element, daymasterElement),
+    })),
+    transmission_relations: [
+      wuxingPairRelation('初传', initial.branch, '中传', middle.branch),
+      wuxingPairRelation('中传', middle.branch, '末传', final.branch),
+    ],
+    four_lesson_internal_relations: fourLessons.map((item) => ({
+      lesson: item.label,
+      upper: item.upper,
+      upper_element: ELEMENT_BY_TOKEN[item.upper],
+      lower: item.lower,
+      lower_element: ELEMENT_BY_TOKEN[item.lower],
+      relation: wuxingRelationTo(ELEMENT_BY_TOKEN[item.upper], ELEMENT_BY_TOKEN[item.lower]),
+    })),
+    four_lesson_upper_relations: fourLessons.flatMap((left, leftIndex) =>
+      fourLessons.slice(leftIndex + 1).map((right) => wuxingPairRelation(left.label, left.upper, right.label, right.upper)),
+    ),
+  };
+}
+
+function normalizeDaymaster(value?: string) {
+  if (!value) return '';
+  return [...value].find((char) => STEMS.includes(char)) ?? '';
+}
+
+function resolveAskerDaymaster(input: AskerProfileInput | undefined, chartDayGanzhi: string) {
+  const manual = normalizeDaymaster(input?.daymaster);
+  if (manual) return { daymaster: manual, source: 'manual' as const };
+  if (input?.birth_time) {
+    const birthDate = parseQuestionTime(input.birth_time);
+    const birthDay = getSolarFromDate(birthDate).getLunar().getEightChar().getDay();
+    return { daymaster: birthDay[0], source: 'birth_time' as const };
+  }
+  return { daymaster: chartDayGanzhi[0], source: 'chart_day_fallback' as const };
+}
+
+function dominantChartElement(threeTransmissions: ReturnType<typeof decideThreeTransmissions>['items'], fourLessons: ReturnType<typeof buildFourLessons>) {
+  const scores: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
+  for (const item of threeTransmissions) scores[ELEMENT_BY_TOKEN[item.branch]] += 2;
+  for (const item of fourLessons) {
+    scores[ELEMENT_BY_TOKEN[item.upper]] += 1;
+    scores[ELEMENT_BY_TOKEN[item.lower]] += 1;
+  }
+  return Object.entries(scores).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))[0][0];
+}
+
+function askerImpact(chartElement: string, askerElement: string) {
+  if (chartElement === askerElement) return '同气助身';
+  if (GENERATES[chartElement] === askerElement) return '印旺生身';
+  if (GENERATES[askerElement] === chartElement) return '食伤泄身';
+  if (CONTROLS[askerElement] === chartElement) return '财旺耗身';
+  if (CONTROLS[chartElement] === askerElement) return '官杀压身';
+  return '影响混杂';
+}
+
+function askerAdvice(impact: string) {
+  return (
+    {
+      同气助身: '适合借力合作，也要避免分散。',
+      印旺生身: '适合补足资源，先稳住节奏。',
+      食伤泄身: '适合表达输出，注意保留余力。',
+      财旺耗身: '适合推进结果，不宜过度透支。',
+      官杀压身: '适合守规则推进，避免硬碰压力。',
+    }[impact] ?? '先观察关键节点，避免仓促加码。'
+  );
+}
+
+function analyzeAskerProfile(
+  input: AskerProfileInput | undefined,
+  chartDayGanzhi: string,
+  threeTransmissions: ReturnType<typeof decideThreeTransmissions>['items'],
+  fourLessons: ReturnType<typeof buildFourLessons>,
+): AskerProfile {
+  const resolved = resolveAskerDaymaster(input, chartDayGanzhi);
+  const askerElement = ELEMENT_BY_TOKEN[resolved.daymaster];
+  const chartElement = dominantChartElement(threeTransmissions, fourLessons);
+  const impact = askerImpact(chartElement, askerElement);
+  return {
+    gender: input?.gender ?? 'unknown',
+    daymaster_source: resolved.source,
+    asker_daymaster: `${resolved.daymaster}${askerElement}`,
+    asker_element: askerElement,
+    asker_bias: `${askerElement}性为主`,
+    chart_bias: `${chartElement}旺`,
+    impact,
+    advice: askerAdvice(impact),
+  };
+}
+
+function normalizeQuestionSchema(question: string | Partial<QuestionSchema> = ''): QuestionSchema {
+  if (typeof question === 'string') {
+    return { questionText: question, questionCategory: 'general', questionIntent: 'trend' };
+  }
+  return {
+    questionText: question.questionText ?? '',
+    questionCategory: question.questionCategory ?? 'general',
+    questionIntent: question.questionIntent ?? 'trend',
+  };
+}
+
+function questionFocusPoints(basePoints: string[], intent: QuestionIntent) {
+  const intentFocus: Record<QuestionIntent, string> = {
+    trend: '后续走势',
+    timing_advice: '时间窗口',
+    risk_check: '风险触发点',
+    go_or_no_go: '推进条件',
+    strategy: '行动路径',
+    diagnosis: '成因结构',
+  };
+  return [...basePoints, intentFocus[intent]];
+}
+
+function favorableQuestionSignals(wuxingRelations: NonNullable<LiurenResult['wuxing_relations']>, askerProfile: AskerProfile) {
+  const signals: string[] = [];
+  if (wuxingRelations.overall_pattern === '连续相生') signals.push('三传连续相生，结构上有顺承');
+  if (['生', '比和'].includes(wuxingRelations.initial_relation_to_daymaster)) signals.push('初传对日干有扶助或同气');
+  if (['同气助身', '印旺生身'].includes(askerProfile.impact)) signals.push(`对提问者为${askerProfile.impact}`);
+  return signals.length ? signals : ['暂无明显扶助信号'];
+}
+
+function riskQuestionSignals(wuxingRelations: NonNullable<LiurenResult['wuxing_relations']>, askerProfile: AskerProfile) {
+  const signals: string[] = [];
+  if (wuxingRelations.overall_pattern === '生克混杂') signals.push('三传生克混杂，节奏容易反复');
+  if (['克', '耗'].includes(wuxingRelations.initial_relation_to_daymaster)) signals.push('初传对日干有克耗');
+  if (['财旺耗身', '官杀压身', '食伤泄身'].includes(askerProfile.impact)) signals.push(`对提问者为${askerProfile.impact}`);
+  return signals.length ? signals : ['暂无明显风险信号'];
+}
+
+function suggestedQuestionAction(baseAction: string, intent: QuestionIntent, favorableSignals: string[], riskSignals: string[]) {
+  if (intent === 'go_or_no_go') return '有扶助信号时小步推进；风险信号多时先暂停复核。';
+  if (intent === 'timing_advice') return '选择阻力较少、资源更稳的时间段行动。';
+  if (intent === 'risk_check' && riskSignals[0] !== '暂无明显风险信号') return '先处理风险点，再进入执行。';
+  if (intent === 'strategy') return '采用分阶段策略，先做低成本验证。';
+  if (intent === 'diagnosis') return '优先定位阻力来源，再判断是否调整路径。';
+  return favorableSignals[0] !== '暂无明显扶助信号' ? baseAction : '先收集更多信息，再小范围试探。';
+}
+
+function avoidQuestionAction(baseAction: string, intent: QuestionIntent, riskSignals: string[]) {
+  if (intent === 'go_or_no_go') return '避免在条件未明时直接重押。';
+  if (intent === 'risk_check') return '避免忽视已出现的克耗与反复信号。';
+  return riskSignals[0] !== '暂无明显风险信号' ? baseAction : '避免过度解读单一吉凶信号。';
+}
+
+function analyzeQuestionContext(
+  question: QuestionSchema,
+  wuxingRelations: NonNullable<LiurenResult['wuxing_relations']>,
+  askerProfile: AskerProfile,
+): QuestionContext {
+  const category = QUESTION_CATEGORIES[question.questionCategory];
+  const favorableSignals = favorableQuestionSignals(wuxingRelations, askerProfile);
+  const riskSignals = riskQuestionSignals(wuxingRelations, askerProfile);
+  return {
+    ...question,
+    category_label: category.label,
+    intent_label: QUESTION_INTENTS[question.questionIntent],
+    class_spirit: category.classSpirit,
+    focus_points: questionFocusPoints(category.focusPoints, question.questionIntent),
+    favorable_signals: favorableSignals,
+    risk_signals: riskSignals,
+    suggested_action: suggestedQuestionAction(category.suggestedAction, question.questionIntent, favorableSignals, riskSignals),
+    avoid_action: avoidQuestionAction(category.avoidAction, question.questionIntent, riskSignals),
+  };
 }
 
 function decideThreeTransmissions(dayGanzhi: string, hourGanzhi: string, monthGeneralBranch: string, plate: ReturnType<typeof buildTianDiPan>, fourLessons: ReturnType<typeof buildFourLessons>) {
@@ -424,6 +840,17 @@ function decideThreeTransmissions(dayGanzhi: string, hourGanzhi: string, monthGe
   }
 
   const branches = chainThreeTransmissions(first, plate);
+  const gateOrder = ['贼克', '比用', '涉害', '遥克', '昴星', '别责', '八专', '伏吟', '返吟'];
+  const selectedIndex = gateOrder.indexOf(gate);
+  gateOrder.forEach((gateName, index) => {
+    if (index === selectedIndex) {
+      trace.push(`gate_step ${gateName}=selected first=${first} variant=${variant}`);
+    } else if (selectedIndex >= 0 && index < selectedIndex) {
+      trace.push(`gate_step ${gateName}=checked_no_result`);
+    } else {
+      trace.push(`gate_step ${gateName}=not_reached`);
+    }
+  });
   trace.push(`gate_${gate} selected=${first} variant=${variant}`, `three_transmissions chain=${JSON.stringify(branches)}`);
   return {
     status: 'computed' as const,
@@ -434,7 +861,7 @@ function decideThreeTransmissions(dayGanzhi: string, hourGanzhi: string, monthGe
   };
 }
 
-export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shanghai'): LiurenResult {
+export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shanghai', question: string | Partial<QuestionSchema> = '', asker?: AskerProfileInput): LiurenResult {
   if (timezone !== 'Asia/Shanghai') {
     throw new Error('静态网页版本当前按浏览器本地时间计算；请使用 Asia/Shanghai，或在本地后端版本中扩展时区支持。');
   }
@@ -458,6 +885,18 @@ export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shangha
   const plate = buildTianDiPan(monthGeneral.branch, pillars.hour[1]);
   const lessons = buildFourLessons(pillars.day, plate);
   const transmissions = decideThreeTransmissions(pillars.day, pillars.hour, monthGeneral.branch, plate, lessons);
+  const wuxingRelations = analyzeWuxingRelations(pillars.day, transmissions.items, lessons);
+  const askerProfile = analyzeAskerProfile(asker, pillars.day, transmissions.items, lessons);
+  const questionSchema = normalizeQuestionSchema(question);
+  const questionContext = analyzeQuestionContext(questionSchema, wuxingRelations, askerProfile);
+  const timing = analyzeDaliurenTiming({
+    currentDatetime: date.toISOString(),
+    timezone,
+    questionCategory: questionContext.questionCategory,
+    questionIntent: questionContext.questionIntent,
+    threeTransmissions: transmissions.items,
+    xunkong: splitXunkong(eightChar.getDayXunKong()),
+  });
   const commonTrace = [
     `localized_datetime=${date.toISOString()}`,
     `four_pillars=${JSON.stringify(pillars)}`,
@@ -467,8 +906,16 @@ export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shangha
   ];
   return {
     type: 'da_liuren',
-    milestone: 3,
-    input: { question_time: questionTime, timezone },
+    milestone: 7,
+    input: {
+      question_time: questionTime,
+      timezone,
+      question_text: questionSchema.questionText,
+      questionText: questionSchema.questionText,
+      questionCategory: questionSchema.questionCategory,
+      questionIntent: questionSchema.questionIntent,
+      asker,
+    },
     localized_datetime: date.toISOString(),
     four_pillars: pillars,
     xunkong: splitXunkong(eightChar.getDayXunKong()),
@@ -476,10 +923,19 @@ export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shangha
     tian_di_pan: plate,
     four_lessons: { status: 'computed', items: lessons },
     three_transmissions: { status: transmissions.status, gate: transmissions.gate, variant: transmissions.variant, items: transmissions.items },
+    wuxing_relations: wuxingRelations,
+    asker_profile: askerProfile,
+    question_schema: questionSchema,
+    question_context: questionContext,
+    timing,
     debug_trace: [
       ...commonTrace,
       `four_lessons=${JSON.stringify(lessons.map((item) => [item.label, item.upper, item.lower, item.relation]))}`,
       ...transmissions.debug_trace,
+      `wuxing_relations=${wuxingRelations.energy_flow}:${wuxingRelations.overall_pattern}`,
+      `asker_profile=${askerProfile.asker_daymaster}:${askerProfile.chart_bias}:${askerProfile.impact}`,
+      `question_context=${questionContext.questionCategory}:${questionContext.questionIntent}`,
+      ...timing.debug_trace,
     ],
   };
 }

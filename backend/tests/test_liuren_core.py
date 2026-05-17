@@ -34,13 +34,31 @@ def test_liuren_basic_result_shape():
 
 def test_liuren_v1_computes_four_lessons_and_three_transmissions():
     result = calculate_liuren_v1("2026-05-17T10:30:00", "Asia/Shanghai")
-    assert result["milestone"] == 3
+    assert result["milestone"] == 8
     assert result["four_lessons"]["status"] == "computed"
     assert len(result["four_lessons"]["items"]) == 4
     assert result["three_transmissions"]["status"] == "computed"
     assert result["three_transmissions"]["gate"] == "涉害"
     assert len(result["three_transmissions"]["items"]) == 3
+    assert result["wuxing_relations"]["energy_flow"]
+    assert set(result["wuxing_relations"]) >= {
+        "initial_relation_to_daymaster",
+        "middle_relation_to_initial",
+        "final_relation_to_middle",
+        "overall_pattern",
+    }
+    assert set(result["asker_profile"]) >= {"asker_daymaster", "chart_bias", "impact", "advice"}
+    assert set(result["question_context"]) >= {
+        "focus_points",
+        "favorable_signals",
+        "risk_signals",
+        "suggested_action",
+        "avoid_action",
+    }
+    assert result["timing"]["timing_windows"]
+    assert set(result["timing"]["timing_windows"][0]) >= {"label", "window", "basis", "confidence", "suggestion"}
     assert any("gate_涉害" in step for step in result["debug_trace"])
+    assert sum(step.startswith("gate_step ") for step in result["debug_trace"]) == 9
 
 
 def test_liuren_v1_can_reach_all_nine_gates():

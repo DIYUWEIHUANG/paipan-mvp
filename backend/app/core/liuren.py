@@ -4,6 +4,10 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from lunar_python import Solar
+from engine.daliuren.asker_profile import analyze_asker_profile
+from engine.daliuren.question_context import analyze_question_context
+from engine.daliuren.wuxing_relations import analyze_wuxing_relations
+from engine.timing.time_window import analyze_daliuren_timing
 
 STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
 BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
@@ -373,6 +377,15 @@ def decide_three_transmissions(
                 trace.append(f"gate_昴星 selected={first}")
 
     branches = chain_three_transmissions(first, plate)
+    gate_order = ["贼克", "比用", "涉害", "遥克", "昴星", "别责", "八专", "伏吟", "返吟"]
+    selected_index = gate_order.index(gate) if gate in gate_order else -1
+    for index, gate_name in enumerate(gate_order):
+        if index == selected_index:
+            trace.append(f"gate_step {gate_name}=selected first={first} variant={variant}")
+        elif selected_index >= 0 and index < selected_index:
+            trace.append(f"gate_step {gate_name}=checked_no_result")
+        else:
+            trace.append(f"gate_step {gate_name}=not_reached")
     trace.append(f"three_transmissions chain={branches}")
     return {
         "status": "computed",
@@ -428,7 +441,16 @@ def calculate_liuren_basic(question_time: str, timezone: str = "Asia/Shanghai") 
     }
 
 
-def calculate_liuren_v1(question_time: str, timezone: str = "Asia/Shanghai") -> dict:
+def calculate_liuren_v1(
+    question_time: str,
+    timezone: str = "Asia/Shanghai",
+    question_text: str = "",
+    question_category: str = "general",
+    question_intent: str = "trend",
+    asker_gender: str = "unknown",
+    asker_birth_time: str | None = None,
+    asker_daymaster: str | None = None,
+) -> dict:
     common = liuren_common(question_time, timezone)
     pillars = common["four_pillars"]
     plate = common["tian_di_pan"]
@@ -440,19 +462,61 @@ def calculate_liuren_v1(question_time: str, timezone: str = "Asia/Shanghai") -> 
         plate=plate,
         four_lessons=lessons,
     )
+    wuxing_relations = analyze_wuxing_relations(
+        day_ganzhi=pillars["day"],
+        three_transmissions=transmissions["items"],
+        four_lessons=lessons,
+    )
+    asker_profile = analyze_asker_profile(
+        gender=asker_gender,
+        birth_time=asker_birth_time,
+        manual_daymaster=asker_daymaster,
+        timezone=timezone,
+        chart_day_ganzhi=pillars["day"],
+        three_transmissions=transmissions["items"],
+        four_lessons=lessons,
+    )
+    question_context = analyze_question_context(
+        question_text=question_text,
+        question_category=question_category,
+        question_intent=question_intent,
+        wuxing_relations=wuxing_relations,
+        asker_profile=asker_profile,
+    )
+    timing = analyze_daliuren_timing(
+        current_datetime=common["localized_datetime"],
+        timezone=timezone,
+        question_category=question_context["questionCategory"],
+        question_intent=question_context["questionIntent"],
+        three_transmissions=transmissions["items"],
+        xunkong=common["xunkong"],
+    )
     debug_trace = [
         *common["debug_trace"],
         f"four_lessons={[(item['label'], item['upper'], item['lower'], item['relation']) for item in lessons]}",
         *transmissions["debug_trace"],
+        f"wuxing_relations={wuxing_relations['energy_flow']}:{wuxing_relations['overall_pattern']}",
+        f"asker_profile={asker_profile['asker_daymaster']}:{asker_profile['chart_bias']}:{asker_profile['impact']}",
+        f"question_context={question_context['questionCategory']}:{question_context['questionIntent']}",
+        *timing["debug_trace"],
     ]
     return {
         "type": "da_liuren",
-        "milestone": 3,
+        "milestone": 8,
         **common,
+        "question_schema": {
+            "questionText": question_text,
+            "questionCategory": question_context["questionCategory"],
+            "questionIntent": question_context["questionIntent"],
+        },
         "four_lessons": {
             "status": "computed",
             "items": lessons,
         },
         "three_transmissions": {key: value for key, value in transmissions.items() if key != "debug_trace"},
+        "wuxing_relations": wuxing_relations,
+        "asker_profile": asker_profile,
+        "question_context": question_context,
+        "timing": timing,
         "debug_trace": debug_trace,
     }
