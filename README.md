@@ -1,6 +1,6 @@
 # 术数排盘 Web MVP
 
-按 milestone 逐步开发，不一次性塞完整排盘逻辑。当前状态：Milestone 1。
+按 milestone 逐步开发，不一次性塞完整排盘逻辑。当前状态：Milestone 2。
 
 ## 结构
 
@@ -35,8 +35,9 @@ cd backend
 
 - `GET /api/health`: 后端健康检查
 - `POST /api/liuyao/manual`: 手动六爻排盘
+- `POST /api/liuren/basic`: 大六壬基础盘
 
-示例：
+六爻示例：
 
 ```json
 {
@@ -45,6 +46,17 @@ cd backend
 ```
 
 `manual_lines` 按自下而上输入，即初爻到上爻。当前只输出本卦、变卦、动爻和 `debug_trace`。
+
+大六壬示例：
+
+```json
+{
+  "question_time": "2026-05-17T10:30:00",
+  "timezone": "Asia/Shanghai"
+}
+```
+
+当前只输出四柱、旬空、月将、天地盘和 `debug_trace`；四课、三传字段已预留，具体判别留到 Milestone 3。
 
 ## Milestones
 

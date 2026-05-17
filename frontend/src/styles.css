@@ -15,6 +15,7 @@ body {
 }
 
 button,
+input,
 select {
   font: inherit;
 }
@@ -95,7 +96,30 @@ p {
 }
 
 .input-panel {
-  padding: 16px;
+  padding: 12px 16px 16px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tabs button {
+  min-height: 38px;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #3b4653;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  border-color: #2770d8;
+  background: #eaf2ff;
+  color: #0f4d9d;
+  font-weight: 700;
 }
 
 .panel-title {
@@ -118,9 +142,16 @@ form {
   padding-top: 14px;
 }
 
+.field,
 .line-grid {
   display: grid;
   gap: 10px;
+}
+
+.field span,
+.line-select span {
+  color: #536170;
+  font-size: 13px;
 }
 
 .line-select {
@@ -130,16 +161,12 @@ form {
   gap: 10px;
 }
 
-.line-select span {
-  color: #536170;
-  font-size: 13px;
-}
-
 .line-select small {
   color: #607080;
   text-align: right;
 }
 
+input,
 select {
   width: 100%;
   min-height: 40px;
@@ -196,6 +223,10 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.summary.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .summary div {
@@ -287,6 +318,30 @@ dd {
   margin: 0;
 }
 
+.plate-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plate-cell {
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dde4ec;
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.plate-cell span {
+  color: #165dbb;
+  font-size: 18px;
+}
+
+.plate-cell strong {
+  color: #6a3844;
+}
+
 .trace,
 .json {
   margin: 0;
@@ -326,12 +381,17 @@ dd {
   .topbar,
   .layout,
   .hexagram-grid,
-  .summary {
+  .summary,
+  .summary.four {
     grid-template-columns: 1fr;
   }
 
   .topbar {
     display: grid;
     align-items: start;
+  }
+
+  .plate-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

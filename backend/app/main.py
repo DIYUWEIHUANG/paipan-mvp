@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.liuren import router as liuren_router
 from app.api.liuyao import router as liuyao_router
 
 app = FastAPI(title="Paipan MVP API", version="0.1.0")
@@ -22,3 +23,4 @@ def health() -> dict[str, str]:
 
 
 app.include_router(liuyao_router)
+app.include_router(liuren_router)
