@@ -38,11 +38,6 @@ export type XiaoLiurenResult = {
   palace_order: XiaoLiurenPalaceName[];
   steps: XiaoLiurenStep[];
   final_palace: XiaoLiurenPalaceName;
-  basic_inference: {
-    title: string;
-    tendency: string;
-    suggestion: string;
-  };
   debug_trace: string[];
 };
 
@@ -66,39 +61,6 @@ export type XiaoLiurenInput = TimeInput | ManualInput;
 
 const PALACES: XiaoLiurenPalaceName[] = ['大安', '留连', '速喜', '赤口', '小吉', '空亡'];
 const HOUR_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-
-const INFERENCES: Record<XiaoLiurenPalaceName, XiaoLiurenResult['basic_inference']> = {
-  大安: {
-    title: '大安',
-    tendency: '局面偏稳定，宜守成、确认基础条件，进展通常不宜急推。',
-    suggestion: '先把信息核准，再稳步推进。适合处理确定性高的事项。',
-  },
-  留连: {
-    title: '留连',
-    tendency: '事情容易拖延、反复或卡在沟通往返中，短期节奏偏慢。',
-    suggestion: '减少等待成本，明确下一步责任人和时间点。',
-  },
-  速喜: {
-    title: '速喜',
-    tendency: '消息来得较快，局面有转明朗的倾向，适合主动推进。',
-    suggestion: '抓住窗口期，但仍需保留确认环节。',
-  },
-  赤口: {
-    title: '赤口',
-    tendency: '容易出现口舌、误解或立场冲突，沟通风险偏高。',
-    suggestion: '避免情绪化表达，重要信息尽量书面确认。',
-  },
-  小吉: {
-    title: '小吉',
-    tendency: '小有进展，结果偏温和有利，但通常不是大幅突破。',
-    suggestion: '适合轻量推进、试探反馈、逐步累积确定性。',
-  },
-  空亡: {
-    title: '空亡',
-    tendency: '信息不实、预期落空或条件未成的可能性较高。',
-    suggestion: '暂缓重投入，先验证关键事实和可执行条件。',
-  },
-};
 
 function validateTimezone(timezone: string) {
   if (timezone !== 'Asia/Shanghai') {
@@ -244,7 +206,6 @@ export function calculateXiaoLiuren(input: XiaoLiurenInput): XiaoLiurenResult {
     palace_order: PALACES,
     steps,
     final_palace: finalPalace,
-    basic_inference: INFERENCES[finalPalace],
     debug_trace: debugTrace,
   };
 }

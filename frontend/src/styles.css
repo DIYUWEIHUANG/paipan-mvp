@@ -450,6 +450,22 @@ dd {
   padding: 14px;
 }
 
+.interpretation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.inference-card.wide {
+  grid-column: 1 / -1;
+}
+
+.inference-card span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .inference-card strong {
   color: #17212b;
   line-height: 1.6;
@@ -639,7 +655,8 @@ dd {
   .hexagram-grid,
   .lesson-grid,
   .transmission-grid,
-  .step-grid {
+  .step-grid,
+  .interpretation-grid {
     grid-template-columns: 1fr;
   }
 

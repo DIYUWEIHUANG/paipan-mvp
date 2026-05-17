@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { RotateCcw, Send } from 'lucide-react';
 import type { AppMode, AppResult } from '../appTypes';
 import { calculateLiurenV1, calculateManualLiuyao } from '../calculators';
-import { calculateXiaoLiuren, XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
+import { XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
+import { calculateXiaoLiurenMilestone2 } from '../features/xiaoliuren';
 
 const LINE_OPTIONS = [
   { value: 6, label: '6 老阴', hint: '阴动' },
@@ -58,7 +59,7 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
           ? calculateLiurenV1(questionTime, timezone)
           : mode === 'liuyao'
             ? calculateManualLiuyao(manualLines)
-            : calculateXiaoLiuren(
+            : calculateXiaoLiurenMilestone2(
                 xiaoMethod === 'time'
                   ? { method: 'time', questionTime, timezone, questionText }
                   : {
@@ -134,6 +135,14 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
         ) : (
           <>
             <label className="field">
+              <span>日期时间</span>
+              <input type="datetime-local" value={questionTime} onChange={(event) => setQuestionTime(event.target.value)} required />
+            </label>
+            <label className="field">
+              <span>时区</span>
+              <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+            </label>
+            <label className="field">
               <span>问题文本</span>
               <textarea value={questionText} onChange={(event) => setQuestionText(event.target.value)} rows={4} placeholder="可选，用于记录起课问题。" />
             </label>
@@ -145,18 +154,7 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
                 手动农历月日时
               </button>
             </div>
-            {xiaoMethod === 'time' ? (
-              <>
-                <label className="field">
-                  <span>公历日期时间</span>
-                  <input type="datetime-local" value={questionTime} onChange={(event) => setQuestionTime(event.target.value)} required />
-                </label>
-                <label className="field">
-                  <span>时区</span>
-                  <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
-                </label>
-              </>
-            ) : (
+            {xiaoMethod === 'manual' && (
               <>
                 <div className="form-grid two">
                   <label className="field">
@@ -177,10 +175,6 @@ export function InputPanel({ mode, onModeChange, onResult, onClear }: InputPanel
                       </option>
                     ))}
                   </select>
-                </label>
-                <label className="field">
-                  <span>时区</span>
-                  <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
                 </label>
               </>
             )}

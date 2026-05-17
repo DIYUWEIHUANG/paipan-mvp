@@ -1,7 +1,7 @@
 import { Braces } from 'lucide-react';
 import type { AppResult } from '../appTypes';
 import type { Hexagram, LiurenResult, LiuYaoResult } from '../calculators';
-import type { XiaoLiurenResult } from '../engines/xiaoliuren';
+import type { XiaoLiurenMilestone2Result } from '../features/xiaoliuren';
 import { JsonViewer } from './JsonViewer';
 import { SummaryCard } from './SummaryCard';
 
@@ -126,15 +126,15 @@ function LiurenView({ result }: { result: LiurenResult }) {
   );
 }
 
-function XiaoLiurenView({ result }: { result: XiaoLiurenResult }) {
+function XiaoLiurenView({ result }: { result: XiaoLiurenMilestone2Result }) {
   return (
     <>
       <SummaryCard
         title="摘要"
         items={[
           { label: '最终宫位', value: result.final_palace },
-          { label: '农历', value: `${result.lunar.month_text}月 ${result.lunar.day_text}` },
-          { label: '时辰', value: `${result.lunar.hour_branch}时` },
+          { label: '吉凶', value: result.interpretation.polarity },
+          { label: '关键词', value: result.interpretation.keywords.join('、') },
         ]}
       />
       <section className="surface result-section">
@@ -152,7 +152,7 @@ function XiaoLiurenView({ result }: { result: XiaoLiurenResult }) {
         <div className="step-grid">
           {result.steps.map((step, index) => (
             <article className="sub-card step-card" key={step.step}>
-              <span>第 {index + 1} 步</span>
+              <span>{step.step === 'month' ? '月' : step.step === 'day' ? '日' : '时'}</span>
               <strong>{step.label}</strong>
               <p>{step.rule}</p>
               <div>
@@ -165,11 +165,37 @@ function XiaoLiurenView({ result }: { result: XiaoLiurenResult }) {
       <section className="surface result-section">
         <div className="section-title">
           <h2>基础推断</h2>
-          <span>{result.basic_inference.title}</span>
+          <span>{result.interpretation.palace} · {result.interpretation.polarity}</span>
         </div>
-        <div className="inference-card">
-          <strong>{result.basic_inference.tendency}</strong>
-          <p>{result.basic_inference.suggestion}</p>
+        <div className="interpretation-grid">
+          <div className="inference-card">
+            <span>关键词</span>
+            <strong>{result.interpretation.keywords.join('、')}</strong>
+          </div>
+          <div className="inference-card wide">
+            <span>总述</span>
+            <p>{result.interpretation.summary}</p>
+          </div>
+          <div className="inference-card">
+            <span>事情进展</span>
+            <p>{result.interpretation.progress}</p>
+          </div>
+          <div className="inference-card">
+            <span>人际 / 口舌</span>
+            <p>{result.interpretation.relationship}</p>
+          </div>
+          <div className="inference-card">
+            <span>财务 / 资源</span>
+            <p>{result.interpretation.resource}</p>
+          </div>
+          <div className="inference-card">
+            <span>行动建议</span>
+            <p>{result.interpretation.action_advice}</p>
+          </div>
+          <div className="inference-card wide">
+            <span>风险提醒</span>
+            <p>{result.interpretation.risk}</p>
+          </div>
         </div>
       </section>
     </>
