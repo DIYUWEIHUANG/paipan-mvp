@@ -61,12 +61,26 @@ type LiurenResult = {
     heaven: string;
   }>;
   four_lessons: {
-    status: 'reserved';
-    items: unknown[];
+    status: 'reserved' | 'computed';
+    items: Array<{
+      index: number;
+      label: string;
+      upper: string;
+      lower: string;
+      relation: string;
+      upper_element: string;
+      lower_element: string;
+    }>;
   };
   three_transmissions: {
-    status: 'reserved';
-    items: unknown[];
+    status: 'reserved' | 'computed';
+    gate?: string;
+    variant?: string;
+    items: Array<{
+      index: number;
+      stage: string;
+      branch: string;
+    }>;
   };
   debug_trace: string[];
 };
@@ -190,7 +204,7 @@ function LiurenForm({ onResult }: { onResult: (result: ChartResult) => void }) {
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch('/api/liuren/basic', {
+      const response = await fetch('/api/liuren/v1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question_time: questionTime, timezone }),
@@ -216,7 +230,7 @@ function LiurenForm({ onResult }: { onResult: (result: ChartResult) => void }) {
       </label>
       <button className="primary" type="submit" disabled={submitting}>
         {submitting ? <RefreshCw className="spin" size={18} aria-hidden="true" /> : <CalendarDays size={18} aria-hidden="true" />}
-        生成大六壬基础盘
+        生成大六壬 V1
       </button>
       {error && <p className="error">{error}</p>}
     </form>
@@ -247,6 +261,16 @@ function LiuYaoResultView({ result }: { result: LiuYaoResult }) {
 function LiurenResultView({ result }: { result: LiurenResult }) {
   return (
     <>
+      <div className="summary">
+        <div>
+          <span>宗门</span>
+          <strong>{result.three_transmissions.gate || result.three_transmissions.status}</strong>
+        </div>
+        <div>
+          <span>取法</span>
+          <strong>{result.three_transmissions.variant || '-'}</strong>
+        </div>
+      </div>
       <div className="summary four">
         <div>
           <span>年柱</span>
@@ -286,16 +310,29 @@ function LiurenResultView({ result }: { result: LiurenResult }) {
           ))}
         </div>
       </section>
-      <div className="summary">
-        <div>
-          <span>四课</span>
-          <strong>{result.four_lessons.status}</strong>
+      <section>
+        <h2>四课</h2>
+        <div className="lesson-grid">
+          {result.four_lessons.items.map((lesson) => (
+            <div className="lesson-card" key={lesson.label}>
+              <span>{lesson.label}</span>
+              <strong>{lesson.upper} / {lesson.lower}</strong>
+              <small>{lesson.relation} · {lesson.upper_element}{lesson.lower_element}</small>
+            </div>
+          ))}
         </div>
-        <div>
-          <span>三传</span>
-          <strong>{result.three_transmissions.status}</strong>
+      </section>
+      <section>
+        <h2>三传</h2>
+        <div className="transmission-grid">
+          {result.three_transmissions.items.map((item) => (
+            <div className="transmission-card" key={item.stage}>
+              <span>{item.stage}</span>
+              <strong>{item.branch}</strong>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
     </>
   );
 }
@@ -354,9 +391,9 @@ function App() {
     <main className="app">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Milestone 2</p>
+          <p className="eyebrow">Milestone 3</p>
           <h1>排盘 MVP</h1>
-          <p>六爻手动 MVP 与大六壬基础盘；不做断语。</p>
+          <p>六爻手动 MVP 与大六壬 V1；不做断语。</p>
         </div>
         <HealthBadge health={health} onRefresh={() => void checkHealth()} />
       </header>
@@ -368,8 +405,8 @@ function App() {
             <button type="button" className={mode === 'liuyao' ? 'active' : ''} onClick={() => setMode('liuyao')}>六爻</button>
           </div>
           <div className="panel-title">
-            <strong>{mode === 'liuren' ? '大六壬基础盘' : '手动六爻'}</strong>
-            <span>{mode === 'liuren' ? '四课三传预留' : '从初爻到上爻'}</span>
+            <strong>{mode === 'liuren' ? '大六壬 V1' : '手动六爻'}</strong>
+            <span>{mode === 'liuren' ? '九宗门三传' : '从初爻到上爻'}</span>
           </div>
           {mode === 'liuren' ? <LiurenForm onResult={setResult} /> : <LiuYaoForm onResult={setResult} />}
         </section>

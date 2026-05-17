@@ -342,6 +342,43 @@ dd {
   color: #6a3844;
 }
 
+.lesson-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lesson-card,
+.transmission-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #dde4ec;
+  border-radius: 6px;
+  background: #fbfcfe;
+  padding: 10px;
+}
+
+.lesson-card span,
+.transmission-card span {
+  color: #697687;
+  font-size: 12px;
+}
+
+.lesson-card small {
+  color: #607080;
+}
+
+.transmission-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.transmission-card strong {
+  color: #165dbb;
+  font-size: 20px;
+}
+
 .trace,
 .json {
   margin: 0;
@@ -382,7 +419,9 @@ dd {
   .layout,
   .hexagram-grid,
   .summary,
-  .summary.four {
+  .summary.four,
+  .lesson-grid,
+  .transmission-grid {
     grid-template-columns: 1fr;
   }
 

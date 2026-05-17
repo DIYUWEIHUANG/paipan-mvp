@@ -23,3 +23,18 @@ def test_liuren_basic_endpoint_rejects_bad_timezone():
         json={"question_time": "2026-05-17T10:30:00", "timezone": "Bad/Zone"},
     )
     assert response.status_code == 400
+
+
+def test_liuren_v1_endpoint():
+    client = TestClient(app)
+    response = client.post(
+        "/api/liuren/v1",
+        json={"question_time": "2026-05-17T10:30:00", "timezone": "Asia/Shanghai"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["type"] == "da_liuren"
+    assert body["milestone"] == 3
+    assert body["four_lessons"]["status"] == "computed"
+    assert body["three_transmissions"]["status"] == "computed"
+    assert set(body["three_transmissions"]) >= {"gate", "variant", "items"}
