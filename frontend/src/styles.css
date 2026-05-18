@@ -479,6 +479,56 @@ textarea:focus {
   padding: 16px;
 }
 
+.admin-panel {
+  padding: 16px;
+}
+
+.admin-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-message {
+  margin: 12px 0 0;
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.admin-raw-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-raw-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid #edf0f2;
+  border-radius: 12px;
+  background: #fbfbfa;
+  padding: 10px 12px;
+}
+
+.admin-raw-list span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-raw-list strong {
+  color: #17212b;
+}
+
+.admin-record-item {
+  cursor: pointer;
+}
+
 .feedback-modal-backdrop {
   position: fixed;
   inset: 0;

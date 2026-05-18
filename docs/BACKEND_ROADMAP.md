@@ -19,6 +19,9 @@
 - SQLite 只在服务器或本机私有环境落盘，不进入 GitHub。
 - 前端只调用 API，不读取数据库连接串。
 - 只提交 schema 和 migrations。
+- Public API 只暴露 `/health` 和匿名聚合 `/api/stats`。
+- Admin API 通过 `X-Admin-Token` 读写 raw records、feedbacks 和导出数据。
+- early-stage 数据库允许保存 `private_raw`，但 raw 只能用于管理员人工筛选和规则评估。
 
 ## Phase 3：用户系统 + Postgres
 

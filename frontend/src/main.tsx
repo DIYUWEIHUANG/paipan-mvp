@@ -5,10 +5,12 @@ import { InputPanel } from './components/InputPanel';
 import { Layout } from './components/Layout';
 import { RecordPanel } from './components/RecordPanel';
 import { ResultPanel } from './components/ResultPanel';
+import { AdminPanel } from './feedback/AdminPanel';
 import { FeedbackForm } from './feedback/FeedbackForm';
 import { FeedbackSummary } from './feedback/FeedbackSummary';
 import { calculateFeedbackStats, createFeedbackMap, loadFeedbacks, loadRecords, MAX_RECORDS, saveFeedbacks, saveRecords, upsertFeedback } from './feedback/storage';
-import type { DivinationFeedback, DivinationRecord } from './feedback/types';
+import { fetchPublicStats, hasRemoteBackend, syncFeedbackToBackend, syncRecordToBackend } from './feedback/remote';
+import type { DivinationFeedback, DivinationRecord, FeedbackStats } from './feedback/types';
 import './styles.css';
 
 function resultModeLabel(result: AppResult) {
@@ -39,12 +41,15 @@ function App() {
   const [records, setRecords] = useState<DivinationRecord[]>(loadRecords);
   const [feedbacks, setFeedbacks] = useState<DivinationFeedback[]>(() => feedbacksForRecords(loadFeedbacks(), records));
   const [activeFeedbackRecordId, setActiveFeedbackRecordId] = useState<string | null>(null);
+  const [remoteStats, setRemoteStats] = useState<FeedbackStats | null>(null);
 
   const recentRecords = records.slice(0, MAX_RECORDS);
   const feedbacksByRecordId = useMemo(() => createFeedbackMap(feedbacks), [feedbacks]);
   const activeFeedbackRecord = activeFeedbackRecordId ? records.find((record) => record.id === activeFeedbackRecordId) ?? null : null;
   const activeFeedback = activeFeedbackRecord ? feedbacksByRecordId[activeFeedbackRecord.id] : undefined;
-  const feedbackStats = useMemo(() => calculateFeedbackStats(feedbacks), [feedbacks]);
+  const localFeedbackStats = useMemo(() => calculateFeedbackStats(feedbacks), [feedbacks]);
+  const feedbackStats = remoteStats ?? localFeedbackStats;
+  const statsSource = remoteStats ? '私有后端 /api/stats' : hasRemoteBackend() ? '私有后端未连接，暂用本地统计' : '本地 localStorage';
 
   useEffect(() => {
     saveRecords(records);
@@ -53,6 +58,18 @@ function App() {
   useEffect(() => {
     saveFeedbacks(feedbacks);
   }, [feedbacks]);
+
+  useEffect(() => {
+    void refreshPublicStats();
+  }, []);
+
+  async function refreshPublicStats() {
+    try {
+      setRemoteStats(await fetchPublicStats());
+    } catch {
+      setRemoteStats(null);
+    }
+  }
 
   function handleResult(nextResult: AppResult) {
     setResult(nextResult);
@@ -65,6 +82,7 @@ function App() {
       result: nextResult,
     };
     setRecords((current) => [record, ...current]);
+    void syncRecordToBackend(record).then(refreshPublicStats).catch(() => undefined);
   }
 
   function handleClearRecords() {
@@ -76,6 +94,7 @@ function App() {
   function handleSubmitFeedback(feedback: DivinationFeedback) {
     if (!records.some((record) => record.id === feedback.recordId)) return;
     setFeedbacks((current) => upsertFeedback(current, feedback));
+    void syncFeedbackToBackend(feedback).then(refreshPublicStats).catch(() => undefined);
     setActiveFeedbackRecordId(null);
   }
 
@@ -92,7 +111,8 @@ function App() {
         />
         <RecordPanel records={recentRecords} feedbacksByRecordId={feedbacksByRecordId} onLoad={setResult} onFeedback={(record) => setActiveFeedbackRecordId(record.id)} onClear={handleClearRecords} />
         <FeedbackForm record={activeFeedbackRecord} feedback={activeFeedback} onSubmit={handleSubmitFeedback} onCancel={() => setActiveFeedbackRecordId(null)} />
-        <FeedbackSummary stats={feedbackStats} feedbacks={feedbacks} recordCount={records.length} />
+        <FeedbackSummary stats={feedbackStats} feedbacks={feedbacks} recordCount={records.length} statsSource={statsSource} />
+        <AdminPanel localRecords={records} localFeedbacks={feedbacks} onLoad={setResult} onSynced={refreshPublicStats} />
       </div>
       <ResultPanel result={result} liurenMode={liurenMode} />
     </Layout>

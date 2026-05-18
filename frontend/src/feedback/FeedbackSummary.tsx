@@ -51,7 +51,7 @@ function downloadJson(filename: string, data: unknown) {
   URL.revokeObjectURL(url);
 }
 
-export function FeedbackSummary({ stats, feedbacks, recordCount }: { stats: FeedbackStats; feedbacks: DivinationFeedback[]; recordCount: number }) {
+export function FeedbackSummary({ stats, feedbacks, recordCount, statsSource }: { stats: FeedbackStats; feedbacks: DivinationFeedback[]; recordCount: number; statsSource: string }) {
   function exportPrivateRaw() {
     if (!feedbacks.length) return;
     if (!window.confirm(privateRawExportWarning())) return;
@@ -71,6 +71,7 @@ export function FeedbackSummary({ stats, feedbacks, recordCount }: { stats: Feed
           <span>
             {recordCount} 个本地排盘 · {feedbacks.length} 条反馈 · {stats.total} 条有效
           </span>
+          <span>统计来源：{statsSource}</span>
         </div>
       </div>
       <div className="export-actions feedback-export-actions">

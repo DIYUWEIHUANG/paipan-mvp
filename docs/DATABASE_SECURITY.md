@@ -9,6 +9,42 @@
 3. 只提交 `schema.sql`、迁移文件和无敏感内容的示例配置。
 4. 前端不能直连私有数据库，也不能包含 `DATABASE_URL`、`JWT_SECRET`、`API_SECRET_KEY` 等后端密钥。
 5. GitHub Pages 是公开前端，任何打进前端 bundle 的变量都应视为公开信息。
+6. 私有后端的 raw 数据只能通过带 `X-Admin-Token` 的 Admin API 访问。
+
+## Milestone 11 API 分层
+
+Public API：
+
+- `GET /health`
+- `GET /api/stats`
+
+Public API 只能返回匿名聚合统计，不返回问题原文、出生时间、反馈文本、用户备注、人工审核备注或原始排盘 JSON。
+
+Admin API：
+
+- `POST /api/records`
+- `GET /api/admin/records`
+- `GET /api/admin/records/{id}`
+- `POST /api/feedbacks`
+- `GET /api/admin/feedbacks`
+- `GET /api/admin/export/private_raw`
+- `GET /api/admin/export/anonymized`
+
+Admin API 必须携带：
+
+```http
+X-Admin-Token: <server-side-admin-token>
+```
+
+服务器环境变量建议：
+
+```bash
+DATABASE_URL=sqlite:////opt/paipan/data/paipan.sqlite3
+ADMIN_TOKEN=<openssl-rand-hex-32>
+CORS_ALLOWED_ORIGINS=https://diyuweihuang.github.io,http://localhost:5173
+```
+
+前端只允许配置 `VITE_API_BASE_URL`，管理员 token 只能由管理员手动输入并保存在本地浏览器 `localStorage`。
 
 ## 隐私分级
 
@@ -47,7 +83,7 @@
 
 1. Phase 0：浏览器 `localStorage` 保存 records 和 feedbacks。
 2. Phase 1：导出/导入 JSON，人工筛选 `qualityTag=valid` 数据。
-3. Phase 2：后端 API 接收反馈，SQLite 私有落盘。
+3. Phase 2：后端 API 接收反馈，SQLite 私有落盘，Public/Admin API 分层。
 4. Phase 3：用户系统、权限控制和 Postgres。
 5. Phase 4：反馈统计、规则评估、版本化解释规则和可回溯数据集。
 
