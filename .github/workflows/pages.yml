@@ -35,9 +35,17 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Build
+      - name: Build frontend
         working-directory: frontend
-        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          if [ -n "$VITE_API_BASE_URL" ]; then
+            echo "VITE_API_BASE_URL configured: yes"
+          else
+            echo "VITE_API_BASE_URL configured: no"
+          fi
+          npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
