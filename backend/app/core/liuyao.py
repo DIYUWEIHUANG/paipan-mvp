@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Literal, TypedDict
 
 LinePolarity = Literal["yin", "yang"]
@@ -114,6 +115,10 @@ def changed_bit(value: int) -> int:
     return 1 - bit if is_moving(value) else bit
 
 
+def hash_question_text(value: str = "") -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
 def bit_to_line_state(position: int, bit: int, value: int, moving: bool) -> LineState:
     return {
         "position": position,
@@ -143,10 +148,21 @@ def build_hexagram_from_bits(bits: list[int], source_values: list[int] | None = 
 
 def calculate_manual_liuyao(manual_lines: list[int]) -> dict:
     lines = validate_manual_lines(manual_lines)
+    input_fingerprint = {
+        "datetime": "",
+        "timezone": "",
+        "questionTextHash": hash_question_text(""),
+        "questionCategory": "general",
+        "questionIntent": "trend",
+        "mode": "manual",
+        "sourceInput": str(lines),
+        "algorithmVersion": "liuyao-backend-manual-v1",
+    }
     base_bits = [line_to_bit(line) for line in lines]
     changed_bits = [changed_bit(line) for line in lines]
     moving_lines = [index + 1 for index, line in enumerate(lines) if is_moving(line)]
     debug_trace = [
+        f"input_fingerprint={input_fingerprint}",
         f"manual_lines(bottom_to_top)={lines}",
         f"base_bits(bottom_to_top)={base_bits}",
         f"changed_bits(bottom_to_top)={changed_bits}",
@@ -160,6 +176,7 @@ def calculate_manual_liuyao(manual_lines: list[int]) -> dict:
             "manual_lines": lines,
             "line_order": "bottom_to_top",
         },
+        "input_fingerprint": input_fingerprint,
         "base_hexagram": build_hexagram_from_bits(base_bits, lines),
         "changed_hexagram": build_hexagram_from_bits(changed_bits),
         "moving_lines": moving_lines,

@@ -37,6 +37,17 @@ export type LiuyaoNumberMode = {
   numbers: string;
 };
 
+export type InputFingerprint = {
+  datetime: string;
+  timezone: string;
+  questionTextHash: string;
+  questionCategory: string;
+  questionIntent: string;
+  mode: string;
+  sourceInput: string;
+  algorithmVersion: string;
+};
+
 export type LiuyaoWuxingRelation = '生' | '克' | '比和';
 
 export type LiuyaoWuxingAnalysis = {
@@ -71,8 +82,12 @@ export type LiuYaoResult = {
     manual_lines: number[];
     line_order: 'bottom_to_top';
     question_text?: string;
+    questionText?: string;
+    questionCategory?: QuestionCategory;
+    questionIntent?: QuestionIntent;
   };
   meta: LiuyaoMeta;
+  input_fingerprint: InputFingerprint;
   base_hexagram: Hexagram;
   changed_hexagram: Hexagram;
   moving_lines: number[];
@@ -121,9 +136,11 @@ export type QuestionCategory =
   | 'relationship'
   | 'travel'
   | 'lost_item'
+  | 'daily_decision'
   | 'decision'
   | 'exam_learning'
-  | 'communication';
+  | 'communication'
+  | 'life_path';
 
 export type QuestionIntent = 'trend' | 'timing_advice' | 'risk_check' | 'go_or_no_go' | 'strategy' | 'diagnosis';
 
@@ -226,6 +243,7 @@ export type LiurenResult = {
   question_schema?: QuestionSchema;
   question_context?: QuestionContext;
   timing?: TimingAnalysis;
+  input_fingerprint?: InputFingerprint;
   debug_trace: string[];
 };
 
@@ -392,6 +410,13 @@ const QUESTION_CATEGORIES: Record<QuestionCategory, { label: string; classSpirit
     suggestedAction: '按最后接触点向外复查。',
     avoidAction: '避免盲目扩大搜索范围。',
   },
+  daily_decision: {
+    label: '日常决策',
+    classSpirit: '用神/取舍',
+    focusPoints: ['眼前条件', '执行成本', '可逆空间'],
+    suggestedAction: '先处理最短路径上的关键条件。',
+    avoidAction: '避免把短期选择扩大成长期承诺。',
+  },
   decision: {
     label: '决策',
     classSpirit: '用神/取舍',
@@ -412,6 +437,13 @@ const QUESTION_CATEGORIES: Record<QuestionCategory, { label: string; classSpirit
     focusPoints: ['信息清晰度', '对方反应', '误解风险'],
     suggestedAction: '先写清楚边界和请求。',
     avoidAction: '避免含糊表达。',
+  },
+  life_path: {
+    label: '人生方向',
+    classSpirit: '命身/阶段',
+    focusPoints: ['长期趋势', '阶段节点', '可持续性'],
+    suggestedAction: '把长期方向拆成可验证的阶段选择。',
+    avoidAction: '避免用短期波动替代长期判断。',
   },
 };
 const QUESTION_INTENTS: Record<QuestionIntent, string> = {
@@ -554,16 +586,19 @@ function analyzeLiuyaoWuxing(baseHexagram: Hexagram, changedHexagram: Hexagram):
   };
 }
 
-function interpretLiuyao(baseHexagram: Hexagram, changedHexagram: Hexagram, movingLines: number[], wuxing: LiuyaoWuxingAnalysis): LiuyaoInterpretation {
+function interpretLiuyao(baseHexagram: Hexagram, changedHexagram: Hexagram, movingLines: number[], wuxing: LiuyaoWuxingAnalysis, question: QuestionSchema): LiuyaoInterpretation {
   const yin = baseHexagram.lines.filter((line) => line.polarity === 'yin').length;
   const yang = baseHexagram.lines.length - yin;
   const movementPattern = movingLines.length ? '动卦' : '静卦';
   const sameHexagram = baseHexagram.number === changedHexagram.number;
+  const category = QUESTION_CATEGORIES[question.questionCategory];
   const notes = [
     movementPattern === '静卦' ? '六爻皆静，先看本卦结构。' : `有${movingLines.length}个动爻，需同时看本卦与变卦。`,
     sameHexagram ? '本卦与变卦相同，事情结构变化较少。' : '本卦已转入变卦，事情存在变化路径。',
     `本卦上卦五行为${wuxing.base_element}，变卦上卦五行为${wuxing.changed_element}。`,
     yang > yin ? '阳爻偏多，外显与推进性较强。' : yin > yang ? '阴爻偏多，收敛与承载性较强。' : '阴阳数量平衡。',
+    `问题类型为${category.label}，解释层关注${category.focusPoints.join('、')}。`,
+    `提问意图为${QUESTION_INTENTS[question.questionIntent]}，不改变卦体，只调整建议焦点。`,
   ];
   return {
     movement_pattern: movementPattern,
@@ -578,7 +613,14 @@ function interpretLiuyao(baseHexagram: Hexagram, changedHexagram: Hexagram, movi
   };
 }
 
-function buildLiuyaoResult(manualLines: number[], questionText: string, meta: LiuyaoMeta, trace: string[]): LiuYaoResult {
+function buildLiuyaoResult(
+  manualLines: number[],
+  question: string | Partial<QuestionSchema>,
+  meta: LiuyaoMeta,
+  trace: string[],
+  fingerprintBase: { datetime?: string; timezone?: string } = {},
+): LiuYaoResult {
+  const questionSchema = normalizeQuestionSchema(question);
   const normalizedLines = normalizeLiuyaoLines(manualLines);
   const baseBits = manualLines.map(lineToBit);
   const changedBits = manualLines.map((line) => (isMoving(line) ? 1 - lineToBit(line) : lineToBit(line)));
@@ -586,12 +628,28 @@ function buildLiuyaoResult(manualLines: number[], questionText: string, meta: Li
   const baseHexagram = buildHexagramFromBits(baseBits, manualLines);
   const changedHexagram = buildHexagramFromBits(changedBits);
   const wuxing = analyzeLiuyaoWuxing(baseHexagram, changedHexagram);
-  const interpretation = interpretLiuyao(baseHexagram, changedHexagram, movingLines, wuxing);
+  const interpretation = interpretLiuyao(baseHexagram, changedHexagram, movingLines, wuxing, questionSchema);
+  const inputFingerprint = buildInputFingerprint({
+    ...fingerprintBase,
+    question: questionSchema,
+    mode: meta.mode,
+    sourceInput: meta.sourceInput,
+    algorithmVersion: meta.algorithmVersion,
+  });
   return {
     type: 'liu_yao',
     milestone: 12,
-    input: { method: meta.mode, manual_lines: normalizedLines, line_order: 'bottom_to_top', question_text: questionText },
+    input: {
+      method: meta.mode,
+      manual_lines: normalizedLines,
+      line_order: 'bottom_to_top',
+      question_text: questionSchema.questionText,
+      questionText: questionSchema.questionText,
+      questionCategory: questionSchema.questionCategory,
+      questionIntent: questionSchema.questionIntent,
+    },
     meta,
+    input_fingerprint: inputFingerprint,
     base_hexagram: baseHexagram,
     changed_hexagram: changedHexagram,
     moving_lines: movingLines,
@@ -599,6 +657,7 @@ function buildLiuyaoResult(manualLines: number[], questionText: string, meta: Li
     interpretation,
     debug_trace: [
       `liuyao_meta=${JSON.stringify(meta)}`,
+      `input_fingerprint=${JSON.stringify(inputFingerprint)}`,
       ...trace,
       `manual_lines(bottom_to_top)=${JSON.stringify(manualLines)}`,
       `base_bits(bottom_to_top)=${JSON.stringify(baseBits)}`,
@@ -610,15 +669,15 @@ function buildLiuyaoResult(manualLines: number[], questionText: string, meta: Li
   };
 }
 
-export function calculateManualLiuyao(manualLines: number[], questionText = ''): LiuYaoResult {
-  return buildLiuyaoResult(manualLines, questionText, {
+export function calculateManualLiuyao(manualLines: number[], question: string | Partial<QuestionSchema> = ''): LiuYaoResult {
+  return buildLiuyaoResult(manualLines, question, {
     mode: 'manual',
     sourceInput: JSON.stringify(manualLines),
     algorithmVersion: 'liuyao-manual-v1',
   }, ['mode=manual', 'manual_rule=direct 6/7/8/9 input']);
 }
 
-export function calculateTimeLiuyao(input: LiuyaoTimeMode, questionText = ''): LiuYaoResult {
+export function calculateTimeLiuyao(input: LiuyaoTimeMode, question: string | Partial<QuestionSchema> = ''): LiuYaoResult {
   if (input.timezone !== 'Asia/Shanghai') {
     throw new Error('静态网页版本当前按 Asia/Shanghai 记录时间起卦；请使用 Asia/Shanghai。');
   }
@@ -628,7 +687,7 @@ export function calculateTimeLiuyao(input: LiuyaoTimeMode, questionText = ''): L
   const digitSum = [...digits].reduce((sum, digit) => sum + Number(digit), 0);
   const movingPosition = digitSum % 6 || 6;
   const lines = initialLines.map((line, index) => (index + 1 === movingPosition ? forceMovingLine(line) : line));
-  return buildLiuyaoResult(lines, questionText, {
+  return buildLiuyaoResult(lines, question, {
     mode: 'time',
     sourceInput: input.datetime,
     generatedAt: input.datetime,
@@ -641,10 +700,10 @@ export function calculateTimeLiuyao(input: LiuyaoTimeMode, questionText = ''): L
     `digit_sum=${digitSum}`,
     `moving_position_by_sum_mod_6=${movingPosition}`,
     `final_lines=${JSON.stringify(lines)}`,
-  ]);
+  ], { datetime: input.datetime, timezone: input.timezone });
 }
 
-export function calculateNumberLiuyao(input: LiuyaoNumberMode, questionText = ''): LiuYaoResult {
+export function calculateNumberLiuyao(input: LiuyaoNumberMode, question: string | Partial<QuestionSchema> = ''): LiuYaoResult {
   const digits = extractNumberDigits(input.numbers);
   if (!digits.length) throw new Error('数字起卦需要至少输入一个数字。');
   const total = digits.reduce((sum, digit) => sum + digit, 0);
@@ -655,10 +714,9 @@ export function calculateNumberLiuyao(input: LiuyaoNumberMode, questionText = ''
     if (index + 1 === movingPosition) return isYang ? 9 : 6;
     return isYang ? 7 : 8;
   });
-  return buildLiuyaoResult(lines, questionText, {
+  return buildLiuyaoResult(lines, question, {
     mode: 'number',
     sourceInput: input.numbers,
-    generatedAt: new Date().toISOString(),
     algorithmVersion: 'liuyao-number-v1',
   }, [
     'mode=number',
@@ -916,6 +974,35 @@ function normalizeQuestionSchema(question: string | Partial<QuestionSchema> = ''
   };
 }
 
+export function hashQuestionText(value = '') {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function buildInputFingerprint(input: {
+  datetime?: string;
+  timezone?: string;
+  question: QuestionSchema;
+  mode: string;
+  sourceInput?: string;
+  algorithmVersion: string;
+}): InputFingerprint {
+  return {
+    datetime: input.datetime ?? '',
+    timezone: input.timezone ?? '',
+    questionTextHash: hashQuestionText(input.question.questionText),
+    questionCategory: input.question.questionCategory,
+    questionIntent: input.question.questionIntent,
+    mode: input.mode,
+    sourceInput: input.sourceInput ?? '',
+    algorithmVersion: input.algorithmVersion,
+  };
+}
+
 function questionFocusPoints(basePoints: string[], intent: QuestionIntent) {
   const intentFocus: Record<QuestionIntent, string> = {
     trend: '后续走势',
@@ -1112,6 +1199,14 @@ export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shangha
   const askerProfile = analyzeAskerProfile(asker, pillars.day, transmissions.items, lessons);
   const questionSchema = normalizeQuestionSchema(question);
   const questionContext = analyzeQuestionContext(questionSchema, wuxingRelations, askerProfile);
+  const inputFingerprint = buildInputFingerprint({
+    datetime: questionTime,
+    timezone,
+    question: questionSchema,
+    mode: 'da_liuren',
+    sourceInput: questionTime,
+    algorithmVersion: 'daliuren-v1-milestone-13',
+  });
   const timing = analyzeDaliurenTiming({
     currentDatetime: date.toISOString(),
     timezone,
@@ -1122,10 +1217,13 @@ export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shangha
   });
   const commonTrace = [
     `localized_datetime=${date.toISOString()}`,
+    `question_time_used=${questionTime} timezone=${timezone}`,
+    `time_components year=${date.getFullYear()} month=${date.getMonth() + 1} day=${date.getDate()} hour=${date.getHours()} minute=${date.getMinutes()} second=${date.getSeconds()}`,
     `four_pillars=${JSON.stringify(pillars)}`,
     `day_xunkong=${JSON.stringify(splitXunkong(eightChar.getDayXunKong()))}`,
     `month_general=${JSON.stringify(monthGeneral)}`,
     `tian_di_pan_rule=place_month_general_${monthGeneral.branch}_on_hour_branch_${pillars.hour[1]}`,
+    `input_fingerprint=${JSON.stringify(inputFingerprint)}`,
   ];
   return {
     type: 'da_liuren',
@@ -1151,6 +1249,7 @@ export function calculateLiurenV1(questionTime: string, timezone = 'Asia/Shangha
     question_schema: questionSchema,
     question_context: questionContext,
     timing,
+    input_fingerprint: inputFingerprint,
     debug_trace: [
       ...commonTrace,
       `four_lessons=${JSON.stringify(lessons.map((item) => [item.label, item.upper, item.lower, item.relation]))}`,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -106,6 +107,33 @@ def parse_question_time(question_time: str, timezone: str) -> datetime:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=tz)
     return parsed.astimezone(tz)
+
+
+def hash_question_text(value: str = "") -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
+def build_input_fingerprint(
+    *,
+    datetime_value: str = "",
+    timezone: str = "",
+    question_text: str = "",
+    question_category: str = "general",
+    question_intent: str = "trend",
+    mode: str,
+    source_input: str = "",
+    algorithm_version: str,
+) -> dict[str, str]:
+    return {
+        "datetime": datetime_value,
+        "timezone": timezone,
+        "questionTextHash": hash_question_text(question_text),
+        "questionCategory": question_category,
+        "questionIntent": question_intent,
+        "mode": mode,
+        "sourceInput": source_input,
+        "algorithmVersion": algorithm_version,
+    }
 
 
 def split_xunkong(value: str) -> list[str]:
@@ -405,6 +433,8 @@ def liuren_common(question_time: str, timezone: str = "Asia/Shanghai") -> dict:
     plate = build_tian_di_pan(month_general["branch"], hour_branch)
     debug_trace = [
         f"localized_datetime={dt.isoformat()}",
+        f"question_time_used={question_time} timezone={timezone}",
+        f"time_components year={dt.year} month={dt.month} day={dt.day} hour={dt.hour} minute={dt.minute} second={dt.second}",
         f"four_pillars={pillars}",
         f"day_xunkong={xunkong}",
         f"month_general={month_general}",
@@ -426,10 +456,19 @@ def liuren_common(question_time: str, timezone: str = "Asia/Shanghai") -> dict:
 
 def calculate_liuren_basic(question_time: str, timezone: str = "Asia/Shanghai") -> dict:
     common = liuren_common(question_time, timezone)
+    input_fingerprint = build_input_fingerprint(
+        datetime_value=question_time,
+        timezone=timezone,
+        mode="da_liuren_basic",
+        source_input=question_time,
+        algorithm_version="daliuren-basic-milestone-13",
+    )
+    common["debug_trace"] = [*common["debug_trace"], f"input_fingerprint={input_fingerprint}"]
     return {
         "type": "da_liuren",
         "milestone": 2,
         **common,
+        "input_fingerprint": input_fingerprint,
         "four_lessons": {
             "status": "reserved",
             "items": [],
@@ -483,6 +522,16 @@ def calculate_liuren_v1(
         wuxing_relations=wuxing_relations,
         asker_profile=asker_profile,
     )
+    input_fingerprint = build_input_fingerprint(
+        datetime_value=question_time,
+        timezone=timezone,
+        question_text=question_text,
+        question_category=question_context["questionCategory"],
+        question_intent=question_context["questionIntent"],
+        mode="da_liuren",
+        source_input=question_time,
+        algorithm_version="daliuren-v1-milestone-13",
+    )
     timing = analyze_daliuren_timing(
         current_datetime=common["localized_datetime"],
         timezone=timezone,
@@ -498,6 +547,7 @@ def calculate_liuren_v1(
         f"wuxing_relations={wuxing_relations['energy_flow']}:{wuxing_relations['overall_pattern']}",
         f"asker_profile={asker_profile['asker_daymaster']}:{asker_profile['chart_bias']}:{asker_profile['impact']}",
         f"question_context={question_context['questionCategory']}:{question_context['questionIntent']}",
+        f"input_fingerprint={input_fingerprint}",
         *timing["debug_trace"],
     ]
     return {
@@ -518,5 +568,6 @@ def calculate_liuren_v1(
         "asker_profile": asker_profile,
         "question_context": question_context,
         "timing": timing,
+        "input_fingerprint": input_fingerprint,
         "debug_trace": debug_trace,
     }

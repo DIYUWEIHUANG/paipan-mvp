@@ -35,9 +35,11 @@ const QUESTION_CATEGORY_OPTIONS: Array<{ value: QuestionCategory; label: string 
   { value: 'relationship', label: '关系' },
   { value: 'travel', label: '出行' },
   { value: 'lost_item', label: '失物' },
+  { value: 'daily_decision', label: '日常决策' },
   { value: 'decision', label: '决策' },
   { value: 'exam_learning', label: '考试学习' },
   { value: 'communication', label: '沟通' },
+  { value: 'life_path', label: '人生方向' },
 ];
 
 const QUESTION_INTENT_OPTIONS: Array<{ value: QuestionIntent; label: string }> = [
@@ -109,30 +111,33 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     event.preventDefault();
     setError('');
     try {
+      const questionSchema = {
+        questionText,
+        questionCategory,
+        questionIntent,
+      };
       const result =
         mode === 'liuyao'
           ? liuyaoMode === 'time'
-            ? calculateTimeLiuyao({ datetime: questionTime, timezone }, questionText)
+            ? calculateTimeLiuyao({ datetime: questionTime, timezone }, questionSchema)
             : liuyaoMode === 'number'
-              ? calculateNumberLiuyao({ numbers: liuyaoNumbers }, questionText)
-              : calculateManualLiuyao(manualLines, questionText)
+              ? calculateNumberLiuyao({ numbers: liuyaoNumbers }, questionSchema)
+              : calculateManualLiuyao(manualLines, questionSchema)
           : liurenMode === 'daliuren'
-            ? calculateLiurenV1(questionTime, timezone, {
-                questionText,
-                questionCategory,
-                questionIntent,
-              }, {
+            ? calculateLiurenV1(questionTime, timezone, questionSchema, {
                 gender: askerGender,
                 birth_time: askerBirthTime || undefined,
                 daymaster: askerDaymaster || undefined,
               })
             : calculateXiaoLiurenMilestone2(
                 xiaoMethod === 'time'
-                  ? { method: 'time', questionTime, timezone, questionText }
+                  ? { method: 'time', questionTime, timezone, questionText, questionCategory, questionIntent }
                   : {
                       method: 'manual',
                       timezone,
                       questionText,
+                      questionCategory,
+                      questionIntent,
                       lunarMonth: manualLunarMonth,
                       lunarDay: manualLunarDay,
                       hourBranch: manualHourBranch,
@@ -252,6 +257,28 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
                   <span>问题文本</span>
                   <textarea value={questionText} onChange={(event) => setQuestionText(event.target.value)} rows={4} placeholder="可选，用于记录起课问题。" />
                 </label>
+                <div className="form-grid two">
+                  <label className="field">
+                    <span>问题类型</span>
+                    <select value={questionCategory} onChange={(event) => setQuestionCategory(event.target.value as QuestionCategory)}>
+                      {QUESTION_CATEGORY_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>提问意图</span>
+                    <select value={questionIntent} onChange={(event) => setQuestionIntent(event.target.value as QuestionIntent)}>
+                      {QUESTION_INTENT_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="method-toggle" role="radiogroup" aria-label="小六壬起课方式">
                   <button type="button" className={xiaoMethod === 'time' ? 'active' : ''} onClick={() => setXiaoMethod('time')}>
                     时间起课
@@ -308,6 +335,28 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
               <span>问题文本</span>
               <textarea value={questionText} onChange={(event) => setQuestionText(event.target.value)} rows={4} placeholder="可选，用于记录起卦问题。" />
             </label>
+            <div className="form-grid two">
+              <label className="field">
+                <span>问题类型</span>
+                <select value={questionCategory} onChange={(event) => setQuestionCategory(event.target.value as QuestionCategory)}>
+                  {QUESTION_CATEGORY_OPTIONS.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>提问意图</span>
+                <select value={questionIntent} onChange={(event) => setQuestionIntent(event.target.value as QuestionIntent)}>
+                  {QUESTION_INTENT_OPTIONS.map((option) => (
+                    <option value={option.value} key={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             {liuyaoMode === 'time' ? (
               <>
                 <label className="field">

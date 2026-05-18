@@ -21,6 +21,8 @@ export type XiaoLiurenResult = {
     question_time?: string;
     timezone: string;
     question_text: string;
+    questionCategory?: string;
+    questionIntent?: string;
     manual_lunar?: {
       month: number;
       day: number;
@@ -46,12 +48,16 @@ type TimeInput = {
   questionTime: string;
   timezone: string;
   questionText: string;
+  questionCategory?: string;
+  questionIntent?: string;
 };
 
 type ManualInput = {
   method: 'manual';
   timezone: string;
   questionText: string;
+  questionCategory?: string;
+  questionIntent?: string;
   lunarMonth: number;
   lunarDay: number;
   hourBranch: string;
@@ -148,7 +154,12 @@ export function calculateXiaoLiuren(input: XiaoLiurenInput): XiaoLiurenResult {
   let dayText = '';
   let branch = '';
   let questionTime: string | undefined;
-  const debugTrace: string[] = [`method=${input.method}`, `palace_order=${PALACES.join(' -> ')}`, 'rule=月上起大安，日上顺数，时上顺数'];
+  const debugTrace: string[] = [
+    `method=${input.method}`,
+    `question_category=${input.questionCategory ?? 'general'} question_intent=${input.questionIntent ?? 'trend'}`,
+    `palace_order=${PALACES.join(' -> ')}`,
+    'rule=月上起大安，日上顺数，时上顺数',
+  ];
 
   if (input.method === 'time') {
     const date = parseQuestionTime(input.questionTime);
@@ -186,6 +197,8 @@ export function calculateXiaoLiuren(input: XiaoLiurenInput): XiaoLiurenResult {
       question_time: questionTime,
       timezone: input.timezone,
       question_text: input.questionText,
+      questionCategory: input.questionCategory,
+      questionIntent: input.questionIntent,
       manual_lunar:
         input.method === 'manual'
           ? {

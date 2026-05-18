@@ -56,9 +56,34 @@ def test_liuren_v1_computes_four_lessons_and_three_transmissions():
         "avoid_action",
     }
     assert result["timing"]["timing_windows"]
+    assert result["timing"]["timing_scale"]
+    assert result["input_fingerprint"]["datetime"] == "2026-05-17T10:30:00"
+    assert any("input_fingerprint=" in step for step in result["debug_trace"])
+    assert any("time_components" in step for step in result["debug_trace"])
     assert set(result["timing"]["timing_windows"][0]) >= {"label", "window", "basis", "confidence", "suggestion"}
     assert any("gate_涉害" in step for step in result["debug_trace"])
     assert sum(step.startswith("gate_step ") for step in result["debug_trace"]) == 9
+
+
+def test_liuren_timing_scale_respects_question_category():
+    career = calculate_liuren_v1(
+        "2026-05-17T10:30:00",
+        "Asia/Shanghai",
+        question_category="career",
+        question_intent="timing_advice",
+    )
+    sleep = calculate_liuren_v1(
+        "2026-05-17T10:30:00",
+        "Asia/Shanghai",
+        question_category="sleep_health",
+        question_intent="timing_advice",
+    )
+
+    assert career["timing"]["timing_scale"] == "medium_term"
+    assert "1-4周" in career["timing"]["timing_windows"][0]["window"]
+    assert "当下至次日" not in "\n".join(item["window"] for item in career["timing"]["timing_windows"])
+    assert sleep["timing"]["timing_scale"] == "immediate"
+    assert "数小时至当日" in sleep["timing"]["timing_windows"][0]["window"]
 
 
 def test_liuren_v1_can_reach_all_nine_gates():

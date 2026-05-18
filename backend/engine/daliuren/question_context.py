@@ -59,6 +59,13 @@ QUESTION_CATEGORIES = {
         "suggested_action": "按最后接触点向外复查。",
         "avoid_action": "避免盲目扩大搜索范围。",
     },
+    "daily_decision": {
+        "label": "日常决策",
+        "class_spirit": "用神/取舍",
+        "focus_points": ["眼前条件", "执行成本", "可逆空间"],
+        "suggested_action": "先处理最短路径上的关键条件。",
+        "avoid_action": "避免把短期选择扩大成长期承诺。",
+    },
     "decision": {
         "label": "决策",
         "class_spirit": "用神/取舍",
@@ -79,6 +86,13 @@ QUESTION_CATEGORIES = {
         "focus_points": ["信息清晰度", "对方反应", "误解风险"],
         "suggested_action": "先写清楚边界和请求。",
         "avoid_action": "避免含糊表达。",
+    },
+    "life_path": {
+        "label": "人生方向",
+        "class_spirit": "命身/阶段",
+        "focus_points": ["长期趋势", "阶段节点", "可持续性"],
+        "suggested_action": "把长期方向拆成可验证的阶段选择。",
+        "avoid_action": "避免用短期波动替代长期判断。",
     },
 }
 

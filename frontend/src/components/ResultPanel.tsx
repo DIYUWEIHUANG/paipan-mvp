@@ -1,7 +1,7 @@
 import { ArrowRight, Braces, Download, FileJson, GitBranch } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { AppResult, LiurenMode } from '../appTypes';
-import type { Hexagram, LiurenResult, LiuYaoResult } from '../calculators';
+import type { Hexagram, InputFingerprint, LiurenResult, LiuYaoResult } from '../calculators';
 import type { TimingAnalysis } from '../engines/timing';
 import type { XiaoLiurenMilestone2Result } from '../features/xiaoliuren';
 import { JsonViewer } from './JsonViewer';
@@ -92,6 +92,60 @@ function ExportBar({ result }: { result: AppResult }) {
           <FileJson size={16} aria-hidden="true" />
           导出 JSON
         </button>
+      </div>
+    </section>
+  );
+}
+
+function modeDisplay(fingerprint: InputFingerprint) {
+  const labels: Record<string, string> = {
+    manual: '手动起卦',
+    time: '时间起卦',
+    number: '数字起卦',
+    da_liuren: '大六壬',
+    'xiao_liuren:time': '小六壬时间起课',
+    'xiao_liuren:manual': '小六壬手动起课',
+  };
+  return labels[fingerprint.mode] ?? fingerprint.mode;
+}
+
+function timingScaleLabel(result: AppResult) {
+  return 'timing' in result && result.timing ? result.timing.timing_scale : '未计算';
+}
+
+function InputFingerprintView({ result }: { result: AppResult }) {
+  const fingerprint = 'input_fingerprint' in result ? result.input_fingerprint : undefined;
+  if (!fingerprint) return null;
+  return (
+    <section className="surface result-section">
+      <div className="section-title">
+        <h2>输入校验</h2>
+        <span>{modeDisplay(fingerprint)}</span>
+      </div>
+      <div className="fingerprint-grid">
+        <div className="inference-card">
+          <span>起卦方式</span>
+          <strong>{modeDisplay(fingerprint)}</strong>
+        </div>
+        <div className="inference-card">
+          <span>实际使用时间</span>
+          <strong>{fingerprint.datetime || '未使用时间'}</strong>
+          <small>{fingerprint.timezone || '未记录时区'}</small>
+        </div>
+        <div className="inference-card">
+          <span>问题类型</span>
+          <strong>
+            {fingerprint.questionCategory} / {fingerprint.questionIntent}
+          </strong>
+        </div>
+        <div className="inference-card">
+          <span>应期尺度</span>
+          <strong>{timingScaleLabel(result)}</strong>
+        </div>
+        <div className="inference-card wide">
+          <span>输入指纹</span>
+          <pre className="mini-json">{JSON.stringify(fingerprint, null, 2)}</pre>
+        </div>
       </div>
     </section>
   );
@@ -237,7 +291,7 @@ function TimingView({ timing }: { timing?: TimingAnalysis }) {
     <section className="surface result-section">
       <div className="section-title">
         <h2>应期</h2>
-        <span>候选窗口</span>
+        <span>{timing.timing_scale} · 候选窗口</span>
       </div>
       <div className="timing-grid">
         {timing.timing_windows.map((item) => (
@@ -551,6 +605,7 @@ export function ResultPanel({ result, liurenMode }: ResultPanelProps) {
   return (
     <section className="result-panel">
       <ExportBar result={result} />
+      <InputFingerprintView result={result} />
       {result.type === 'liu_yao' ? (
         <LiuYaoView result={result} />
       ) : result.type === 'xiao_liuren' ? (
