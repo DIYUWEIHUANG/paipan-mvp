@@ -4,6 +4,7 @@ import type { AppResult, LiurenMode } from '../appTypes';
 import type { Hexagram, InputFingerprint, LiurenResult, LiuYaoResult } from '../calculators';
 import type { TimingAnalysis } from '../engines/timing';
 import type { XiaoLiurenMilestone2Result } from '../features/xiaoliuren';
+import type { NameWuxingProfile, PersonalizedInfluence } from '../personalization/types';
 import { JsonViewer } from './JsonViewer';
 import { SummaryCard } from './SummaryCard';
 
@@ -145,6 +146,74 @@ function InputFingerprintView({ result }: { result: AppResult }) {
         <div className="inference-card wide">
           <span>输入指纹</span>
           <pre className="mini-json">{JSON.stringify(fingerprint, null, 2)}</pre>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function personalizedParts(result: AppResult): { nameProfile: NameWuxingProfile; personalizedChart: PersonalizedInfluence } | null {
+  if (!('nameProfile' in result) || !('personalizedChart' in result)) return null;
+  return {
+    nameProfile: result.nameProfile as NameWuxingProfile,
+    personalizedChart: result.personalizedChart as PersonalizedInfluence,
+  };
+}
+
+function PersonalizedInfluenceView({ result }: { result: AppResult }) {
+  const parts = personalizedParts(result);
+  if (!parts) return null;
+  const { nameProfile, personalizedChart } = parts;
+  return (
+    <section className="surface result-section">
+      <div className="section-title">
+        <h2>个体化影响</h2>
+        <span>原始盘不变 · 姓名五行参与权重</span>
+      </div>
+      <div className="personalized-grid">
+        <div className="inference-card">
+          <span>姓名</span>
+          <strong>{nameProfile.name}</strong>
+        </div>
+        <div className="inference-card">
+          <span>姓名主五行</span>
+          <strong>{nameProfile.dominantElements.join('、') || '未定'}</strong>
+        </div>
+        <div className="inference-card">
+          <span>总体影响</span>
+          <strong>{personalizedChart.summary}</strong>
+        </div>
+        <div className="inference-card">
+          <span>补益 / 消耗 / 冲突</span>
+          <strong>
+            {personalizedChart.supportScore} / {personalizedChart.drainScore} / {personalizedChart.conflictScore}
+          </strong>
+        </div>
+        <div className="inference-card">
+          <span>同气 / 可控</span>
+          <strong>
+            {personalizedChart.harmonyScore} / {personalizedChart.controlScore}
+          </strong>
+        </div>
+        <div className="inference-card">
+          <span>有利五行</span>
+          <strong>{personalizedChart.usefulElements.join('、') || '未见明显'}</strong>
+        </div>
+        <div className="inference-card">
+          <span>压力五行</span>
+          <strong>{personalizedChart.riskyElements.join('、') || '未见明显'}</strong>
+        </div>
+        <div className="inference-card wide">
+          <span>行动建议</span>
+          <p>{personalizedChart.actionAdvice}</p>
+        </div>
+        <div className="inference-card wide">
+          <span>姓名逐字</span>
+          <p>{nameProfile.characterAnalysis.map((item) => `${item.char}:${item.wuxing}/${item.confidence}`).join('；')}</p>
+        </div>
+        <div className="inference-card wide">
+          <span>盘面五行来源</span>
+          <p>{personalizedChart.chartElementFlow.join('；')}</p>
         </div>
       </div>
     </section>
@@ -606,6 +675,7 @@ export function ResultPanel({ result, liurenMode }: ResultPanelProps) {
     <section className="result-panel">
       <ExportBar result={result} />
       <InputFingerprintView result={result} />
+      <PersonalizedInfluenceView result={result} />
       {result.type === 'liu_yao' ? (
         <LiuYaoView result={result} />
       ) : result.type === 'xiao_liuren' ? (

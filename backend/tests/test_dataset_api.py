@@ -20,6 +20,11 @@ def record_payload() -> dict:
                 "questionCategory": "sleep_health",
                 "asker_birth_time": "1990-01-01T00:00",
             },
+            "nameProfile": {
+                "name": "杨丙辰",
+                "elements": {"木": 2, "火": 2, "土": 2, "金": 0, "水": 0},
+                "dominantElements": ["木", "火", "土"],
+            },
         },
     }
 
@@ -104,6 +109,7 @@ def test_admin_exports_raw_and_anonymized(monkeypatch, tmp_path):
     ]
     assert "今晚几点睡觉好" not in str(anonymized)
     assert "带有私有备注" not in str(anonymized)
+    assert "杨丙辰" not in str(anonymized)
 
 
 def test_public_stats_only_counts_valid_quality(monkeypatch, tmp_path):

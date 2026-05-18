@@ -108,6 +108,7 @@ function App() {
           onLiurenModeChange={setLiurenMode}
           onResult={handleResult}
           onClear={() => setResult(null)}
+          currentResult={result}
         />
         <RecordPanel records={recentRecords} feedbacksByRecordId={feedbacksByRecordId} onLoad={setResult} onFeedback={(record) => setActiveFeedbackRecordId(record.id)} onClear={handleClearRecords} />
         <FeedbackForm record={activeFeedbackRecord} feedback={activeFeedback} onSubmit={handleSubmitFeedback} onCancel={() => setActiveFeedbackRecordId(null)} />

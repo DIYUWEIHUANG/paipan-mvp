@@ -4,12 +4,48 @@ import os
 from pathlib import Path
 
 
+def _env_file_paths() -> list[Path]:
+    return [
+        Path.cwd() / ".env",
+        Path(__file__).resolve().parents[1] / ".env",
+    ]
+
+
+def _env_file_value(name: str) -> str:
+    for path in _env_file_paths():
+        if not path.exists():
+            continue
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                key, value = stripped.split("=", 1)
+                if key.strip() == name:
+                    return value.strip().strip('"').strip("'")
+        except OSError:
+            continue
+    return ""
+
+
+def env_value(name: str, default: str = "") -> str:
+    return os.getenv(name) or _env_file_value(name) or default
+
+
 def admin_token() -> str:
-    return os.getenv("ADMIN_TOKEN") or os.getenv("API_SECRET_KEY") or ""
+    return env_value("ADMIN_TOKEN") or env_value("API_SECRET_KEY")
+
+
+def stepfun_base_url() -> str:
+    return env_value("STEPFUN_BASE_URL")
+
+
+def stepfun_auth_token() -> str:
+    return env_value("STEPFUN_AUTH_TOKEN")
 
 
 def database_path() -> Path:
-    database_url = os.getenv("DATABASE_URL", "sqlite:///paipan.sqlite3")
+    database_url = env_value("DATABASE_URL", "sqlite:///paipan.sqlite3")
     if not database_url.startswith("sqlite:///"):
         raise ValueError("Milestone 11 MVP only supports sqlite:/// DATABASE_URL values.")
 
@@ -21,7 +57,7 @@ def database_path() -> Path:
 
 
 def cors_allowed_origins() -> list[str]:
-    raw = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    raw = env_value("CORS_ALLOWED_ORIGINS", "")
     if raw.strip():
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
     return [

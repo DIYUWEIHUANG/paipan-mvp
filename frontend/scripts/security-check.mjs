@@ -37,7 +37,7 @@ for (const file of trackedFiles) {
 const frontendSourceFiles = trackedFiles.filter((file) => file.startsWith('frontend/src/') && /\.(ts|tsx|js|jsx|json|css|html)$/i.test(file));
 for (const file of frontendSourceFiles) {
   const text = readFileSync(join(repoRoot, file), 'utf8');
-  for (const token of ['DATABASE_URL', 'JWT_SECRET', 'API_SECRET_KEY']) {
+  for (const token of ['DATABASE_URL', 'JWT_SECRET', 'API_SECRET_KEY', 'STEPFUN_AUTH_TOKEN', 'STEPFUN_API_KEY']) {
     if (text.includes(token)) addFailure(`frontend source contains backend secret token ${token}: ${file}`);
   }
 }

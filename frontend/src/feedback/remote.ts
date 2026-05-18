@@ -1,4 +1,5 @@
 import type { AppResult } from '../appTypes';
+import type { NameWuxingApiResult } from '../personalization/types';
 import type { DivinationFeedback, DivinationRecord, FeedbackStats } from './types';
 
 export const ADMIN_TOKEN_STORAGE_KEY = 'paipan.adminToken.v1';
@@ -93,4 +94,15 @@ export async function fetchPrivateRawExport(token = getStoredAdminToken()) {
 
 export async function fetchAnonymizedExport(token = getStoredAdminToken()) {
   return requestJson<unknown>('/api/admin/export/anonymized', {}, token);
+}
+
+export async function analyzeNameWuxing(name: string, token = getStoredAdminToken()) {
+  return requestJson<NameWuxingApiResult>(
+    '/api/admin/name-wuxing',
+    {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    },
+    token,
+  );
 }

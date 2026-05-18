@@ -295,6 +295,13 @@ form {
   padding: 12px;
 }
 
+.hint-text {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;
@@ -922,6 +929,12 @@ dd {
   gap: 12px;
 }
 
+.personalized-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .mini-json {
   max-height: 180px;
   margin: 0;
@@ -1276,6 +1289,7 @@ dd {
   .profile-result-grid,
   .question-context-grid,
   .fingerprint-grid,
+  .personalized-grid,
   .timing-grid,
   .wuxing-overview,
   .wuxing-arrow-grid {

@@ -3,7 +3,9 @@ import { RotateCcw, Send } from 'lucide-react';
 import type { AppMode, AppResult, LiurenMode } from '../appTypes';
 import { calculateLiurenV1, calculateManualLiuyao, calculateNumberLiuyao, calculateTimeLiuyao, type AskerGender, type LiuyaoMode, type QuestionCategory, type QuestionIntent } from '../calculators';
 import { XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
+import { analyzeNameWuxing, hasRemoteBackend } from '../feedback/remote';
 import { calculateXiaoLiurenMilestone2 } from '../features/xiaoliuren';
+import { buildNameWuxingProfile, personalizeChart } from '../personalization/personalizedChart';
 
 const LINE_OPTIONS = [
   { value: 6, label: '6 老阴', hint: '阴动' },
@@ -65,12 +67,14 @@ type InputPanelProps = {
   onLiurenModeChange: (mode: LiurenMode) => void;
   onResult: (result: AppResult) => void;
   onClear: () => void;
+  currentResult: AppResult | null;
 };
 
-export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange, onResult, onClear }: InputPanelProps) {
+export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange, onResult, onClear, currentResult }: InputPanelProps) {
   const [questionTime, setQuestionTime] = useState(localDateTimeInput());
   const [timezone, setTimezone] = useState('Asia/Shanghai');
   const [questionText, setQuestionText] = useState('');
+  const [askerName, setAskerName] = useState('');
   const [questionCategory, setQuestionCategory] = useState<QuestionCategory>('general');
   const [questionIntent, setQuestionIntent] = useState<QuestionIntent>('trend');
   const [askerGender, setAskerGender] = useState<AskerGender>('unknown');
@@ -84,12 +88,14 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
   const [manualLunarDay, setManualLunarDay] = useState(1);
   const [manualHourBranch, setManualHourBranch] = useState('子');
   const [error, setError] = useState('');
+  const [nameStatus, setNameStatus] = useState('');
   const submitLabel = mode === 'liuyao' ? '生成六爻' : liurenMode === 'daliuren' ? '生成大六壬 V1' : '生成小六壬';
 
   function clearForm() {
     setQuestionTime(localDateTimeInput());
     setTimezone('Asia/Shanghai');
     setQuestionText('');
+    setAskerName('');
     setQuestionCategory('general');
     setQuestionIntent('trend');
     setAskerGender('unknown');
@@ -104,6 +110,7 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     setManualLunarDay(1);
     setManualHourBranch('子');
     setError('');
+    setNameStatus('');
     onClear();
   }
 
@@ -146,6 +153,33 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
       onResult(result);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
+
+  async function analyzeCurrentName() {
+    setError('');
+    setNameStatus('');
+    if (!currentResult) {
+      setError('请先生成一卦，再分析姓名五行。');
+      return;
+    }
+    if (!askerName.trim()) {
+      setError('请先填写姓名。');
+      return;
+    }
+    if (!hasRemoteBackend()) {
+      setError('姓名五行需要私有后端 VITE_API_BASE_URL。');
+      return;
+    }
+    setNameStatus('正在分析姓名五行...');
+    try {
+      const apiProfile = await analyzeNameWuxing(askerName.trim());
+      const nameProfile = buildNameWuxingProfile(apiProfile);
+      onResult(personalizeChart(currentResult, nameProfile));
+      setNameStatus(`已生成 ${nameProfile.name} 的个体化影响分析。`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setNameStatus('');
     }
   }
 
@@ -395,6 +429,21 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
             )}
           </>
         )}
+
+        <div className="profile-fields">
+          <div className="mode-heading compact">
+            <strong>姓名五行</strong>
+            <span>Milestone 14</span>
+          </div>
+          <label className="field">
+            <span>姓名</span>
+            <input value={askerName} onChange={(event) => setAskerName(event.target.value)} placeholder="例如：杨丙辰" />
+          </label>
+          <button className="secondary-button" type="button" onClick={analyzeCurrentName} disabled={!currentResult || !askerName.trim()}>
+            分析姓名五行
+          </button>
+          {nameStatus && <p className="hint-text">{nameStatus}</p>}
+        </div>
 
         <div className="button-row">
           <button className="primary-button" type="submit">
