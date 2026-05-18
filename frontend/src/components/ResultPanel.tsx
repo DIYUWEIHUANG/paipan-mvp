@@ -4,6 +4,7 @@ import type { AppResult, LiurenMode } from '../appTypes';
 import type { Hexagram, InputFingerprint, LiurenResult, LiuYaoResult } from '../calculators';
 import type { TimingAnalysis } from '../engines/timing';
 import type { XiaoLiurenMilestone2Result } from '../features/xiaoliuren';
+import type { LlmInterpretation } from '../interpretation/llmInterpretation';
 import type { NameWuxingProfile, PersonalizedInfluence } from '../personalization/types';
 import { JsonViewer } from './JsonViewer';
 import { SummaryCard } from './SummaryCard';
@@ -214,6 +215,54 @@ function PersonalizedInfluenceView({ result }: { result: AppResult }) {
         <div className="inference-card wide">
           <span>盘面五行来源</span>
           <p>{personalizedChart.chartElementFlow.join('；')}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function llmInterpretationFromResult(result: AppResult): LlmInterpretation | null {
+  if (!('llmInterpretation' in result)) return null;
+  return result.llmInterpretation as LlmInterpretation;
+}
+
+function LlmInterpretationView({ result }: { result: AppResult }) {
+  const interpretation = llmInterpretationFromResult(result);
+  if (!interpretation) return null;
+  return (
+    <section className="surface result-section">
+      <div className="section-title">
+        <h2>LLM 优化解读</h2>
+        <span>规则解释保留 · rawChart 不变</span>
+      </div>
+      <div className="llm-grid">
+        <div className="inference-card wide">
+          <span>总述</span>
+          <p>{interpretation.summary}</p>
+        </div>
+        <div className="inference-card">
+          <span>置信度</span>
+          <strong>{interpretation.confidence}</strong>
+        </div>
+        <div className="inference-card">
+          <span>应期建议</span>
+          <p>{interpretation.timingAdvice}</p>
+        </div>
+        <div className="inference-card">
+          <span>行动建议</span>
+          <p>{interpretation.actionAdvice}</p>
+        </div>
+        <div className="inference-card">
+          <span>不宜行动</span>
+          <p>{interpretation.avoidAction}</p>
+        </div>
+        <div className="inference-card">
+          <span>关键信号</span>
+          <p>{interpretation.keySignals.join('；') || '未列出'}</p>
+        </div>
+        <div className="inference-card">
+          <span>风险信号</span>
+          <p>{interpretation.riskSignals.join('；') || '未列出'}</p>
         </div>
       </div>
     </section>
@@ -676,6 +725,7 @@ export function ResultPanel({ result, liurenMode }: ResultPanelProps) {
       <ExportBar result={result} />
       <InputFingerprintView result={result} />
       <PersonalizedInfluenceView result={result} />
+      <LlmInterpretationView result={result} />
       {result.type === 'liu_yao' ? (
         <LiuYaoView result={result} />
       ) : result.type === 'xiao_liuren' ? (

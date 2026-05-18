@@ -1,4 +1,5 @@
 import type { AppResult } from '../appTypes';
+import type { LlmEnhancePayload, LlmInterpretation } from '../interpretation/llmInterpretation';
 import type { NameWuxingApiResult } from '../personalization/types';
 import type { DivinationFeedback, DivinationRecord, FeedbackStats } from './types';
 
@@ -102,6 +103,17 @@ export async function analyzeNameWuxing(name: string, token = getStoredAdminToke
     {
       method: 'POST',
       body: JSON.stringify({ name }),
+    },
+    token,
+  );
+}
+
+export async function enhanceInterpretation(payload: LlmEnhancePayload, token = getStoredAdminToken()) {
+  return requestJson<LlmInterpretation>(
+    '/api/admin/interpret/enhance',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
     },
     token,
   );

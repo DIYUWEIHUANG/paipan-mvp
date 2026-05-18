@@ -935,6 +935,12 @@ dd {
   gap: 12px;
 }
 
+.llm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .mini-json {
   max-height: 180px;
   margin: 0;
@@ -1290,6 +1296,7 @@ dd {
   .question-context-grid,
   .fingerprint-grid,
   .personalized-grid,
+  .llm-grid,
   .timing-grid,
   .wuxing-overview,
   .wuxing-arrow-grid {

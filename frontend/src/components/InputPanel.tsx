@@ -3,8 +3,9 @@ import { RotateCcw, Send } from 'lucide-react';
 import type { AppMode, AppResult, LiurenMode } from '../appTypes';
 import { calculateLiurenV1, calculateManualLiuyao, calculateNumberLiuyao, calculateTimeLiuyao, type AskerGender, type LiuyaoMode, type QuestionCategory, type QuestionIntent } from '../calculators';
 import { XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
-import { analyzeNameWuxing, hasRemoteBackend } from '../feedback/remote';
+import { analyzeNameWuxing, enhanceInterpretation, hasRemoteBackend } from '../feedback/remote';
 import { calculateXiaoLiurenMilestone2 } from '../features/xiaoliuren';
+import { attachLlmInterpretation, buildLlmEnhancePayload } from '../interpretation/llmInterpretation';
 import { buildNameWuxingProfile, personalizeChart } from '../personalization/personalizedChart';
 
 const LINE_OPTIONS = [
@@ -89,6 +90,7 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
   const [manualHourBranch, setManualHourBranch] = useState('子');
   const [error, setError] = useState('');
   const [nameStatus, setNameStatus] = useState('');
+  const [llmStatus, setLlmStatus] = useState('');
   const submitLabel = mode === 'liuyao' ? '生成六爻' : liurenMode === 'daliuren' ? '生成大六壬 V1' : '生成小六壬';
 
   function clearForm() {
@@ -111,6 +113,7 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     setManualHourBranch('子');
     setError('');
     setNameStatus('');
+    setLlmStatus('');
     onClear();
   }
 
@@ -180,6 +183,28 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setNameStatus('');
+    }
+  }
+
+  async function enhanceCurrentInterpretation() {
+    setError('');
+    setLlmStatus('');
+    if (!currentResult) {
+      setError('请先生成一卦，再增强解读。');
+      return;
+    }
+    if (!hasRemoteBackend()) {
+      setError('LLM 解读需要私有后端 VITE_API_BASE_URL。');
+      return;
+    }
+    setLlmStatus('正在生成 LLM 优化解读...');
+    try {
+      const interpretation = await enhanceInterpretation(buildLlmEnhancePayload(currentResult));
+      onResult(attachLlmInterpretation(currentResult, interpretation));
+      setLlmStatus('已生成 LLM 解读优化层。');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setLlmStatus('');
     }
   }
 
@@ -443,6 +468,17 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
             分析姓名五行
           </button>
           {nameStatus && <p className="hint-text">{nameStatus}</p>}
+        </div>
+
+        <div className="profile-fields">
+          <div className="mode-heading compact">
+            <strong>LLM 解读优化</strong>
+            <span>Milestone 15</span>
+          </div>
+          <button className="secondary-button" type="button" onClick={enhanceCurrentInterpretation} disabled={!currentResult}>
+            生成优化建议
+          </button>
+          {llmStatus && <p className="hint-text">{llmStatus}</p>}
         </div>
 
         <div className="button-row">
