@@ -34,6 +34,19 @@ function feedbacksForRecords(feedbacks: DivinationFeedback[], records: Divinatio
   return feedbacks.filter((feedback) => recordIds.has(feedback.recordId));
 }
 
+function modeForResult(result: AppResult): { mode: AppMode; liurenMode: LiurenMode } {
+  if (result.type === 'liu_yao') return { mode: 'liuyao', liurenMode: 'daliuren' };
+  if (result.type === 'xiao_liuren') return { mode: 'liuren', liurenMode: 'xiaoliuren' };
+  return { mode: 'liuren', liurenMode: 'daliuren' };
+}
+
+function revealResultPanel() {
+  if (typeof window === 'undefined' || !window.matchMedia('(max-width: 900px)').matches) return;
+  window.requestAnimationFrame(() => {
+    document.querySelector('.result-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
 function App() {
   const [mode, setMode] = useState<AppMode>('liuren');
   const [liurenMode, setLiurenMode] = useState<LiurenMode>('daliuren');
@@ -72,6 +85,9 @@ function App() {
   }
 
   function handleResult(nextResult: AppResult) {
+    const nextMode = modeForResult(nextResult);
+    setMode(nextMode.mode);
+    setLiurenMode(nextMode.liurenMode);
     setResult(nextResult);
     const record: DivinationRecord = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -83,6 +99,16 @@ function App() {
     };
     setRecords((current) => [record, ...current]);
     void syncRecordToBackend(record).then(refreshPublicStats).catch(() => undefined);
+    revealResultPanel();
+  }
+
+  function handleLoadResult(nextResult: AppResult) {
+    const nextMode = modeForResult(nextResult);
+    setMode(nextMode.mode);
+    setLiurenMode(nextMode.liurenMode);
+    setResult(nextResult);
+    setActiveFeedbackRecordId(null);
+    revealResultPanel();
   }
 
   function handleClearRecords() {
@@ -110,10 +136,10 @@ function App() {
           onClear={() => setResult(null)}
           currentResult={result}
         />
-        <RecordPanel records={recentRecords} feedbacksByRecordId={feedbacksByRecordId} onLoad={setResult} onFeedback={(record) => setActiveFeedbackRecordId(record.id)} onClear={handleClearRecords} />
+        <RecordPanel records={recentRecords} feedbacksByRecordId={feedbacksByRecordId} onLoad={handleLoadResult} onFeedback={(record) => setActiveFeedbackRecordId(record.id)} onClear={handleClearRecords} />
         <FeedbackForm record={activeFeedbackRecord} feedback={activeFeedback} onSubmit={handleSubmitFeedback} onCancel={() => setActiveFeedbackRecordId(null)} />
         <FeedbackSummary stats={feedbackStats} feedbacks={feedbacks} recordCount={records.length} statsSource={statsSource} />
-        <AdminPanel localRecords={records} localFeedbacks={feedbacks} onLoad={setResult} onSynced={refreshPublicStats} />
+        <AdminPanel localRecords={records} localFeedbacks={feedbacks} onLoad={handleLoadResult} onSynced={refreshPublicStats} />
       </div>
       <ResultPanel result={result} liurenMode={liurenMode} />
     </Layout>

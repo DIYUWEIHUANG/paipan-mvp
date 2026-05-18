@@ -20,6 +20,20 @@ export function hasRemoteBackend() {
   return Boolean(apiBaseUrl());
 }
 
+function isHttpsPageWithHttpBackend(baseUrl: string) {
+  return typeof window !== 'undefined' && window.location.protocol === 'https:' && baseUrl.startsWith('http://');
+}
+
+function backendRequestError(baseUrl: string, error: unknown) {
+  if (isHttpsPageWithHttpBackend(baseUrl)) {
+    return new Error('私有后端请求被浏览器拦截：当前页面是 HTTPS，但 VITE_API_BASE_URL 是 HTTP。请给后端配置 HTTPS 域名或反向代理后，将 GitHub Variables 中的 VITE_API_BASE_URL 改为 https://...。');
+  }
+  if (error instanceof TypeError) {
+    return new Error('私有后端请求失败：请检查后端是否在线、CORS 是否允许当前页面，以及 VITE_API_BASE_URL 是否正确。');
+  }
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 export function getStoredAdminToken() {
   return window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '';
 }
@@ -33,14 +47,20 @@ export function setStoredAdminToken(token: string) {
 async function requestJson<T>(path: string, init: RequestInit = {}, adminToken = ''): Promise<T> {
   const baseUrl = apiBaseUrl();
   if (!baseUrl) throw new Error('VITE_API_BASE_URL is not configured.');
+  if (isHttpsPageWithHttpBackend(baseUrl)) throw backendRequestError(baseUrl, new TypeError('mixed content'));
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   if (adminToken) headers.set('X-Admin-Token', adminToken);
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers,
+    });
+  } catch (error) {
+    throw backendRequestError(baseUrl, error);
+  }
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Request failed: ${response.status}`);
