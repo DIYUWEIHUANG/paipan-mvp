@@ -310,6 +310,10 @@ form {
   gap: 8px;
 }
 
+.method-toggle.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .method-toggle button {
   min-height: 40px;
   border: 1px solid #d0d5dd;

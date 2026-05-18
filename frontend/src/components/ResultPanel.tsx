@@ -134,24 +134,97 @@ function HexagramView({ title, hexagram }: { title: string; hexagram: Hexagram }
 }
 
 function LiuYaoView({ result }: { result: LiuYaoResult }) {
+  const meta = result.meta ?? { mode: result.input.method, algorithmVersion: 'liuyao-legacy' };
+  const wuxing = result.wuxing ?? {
+    base_upper_trigram: result.base_hexagram.upper_trigram,
+    base_lower_trigram: result.base_hexagram.lower_trigram,
+    changed_upper_trigram: result.changed_hexagram.upper_trigram,
+    changed_lower_trigram: result.changed_hexagram.lower_trigram,
+    base_element: '未计算',
+    changed_element: '未计算',
+    relation: '比和',
+    relation_arrow: '未计算',
+    direction: 'same',
+  };
+  const interpretation = result.interpretation ?? {
+    movement_pattern: result.moving_lines.length ? '动卦' : '静卦',
+    same_hexagram: result.base_hexagram.number === result.changed_hexagram.number,
+    wuxing_summary: wuxing.relation_arrow,
+    yin_yang_ratio: {
+      yin: result.base_hexagram.lines.filter((line) => line.polarity === 'yin').length,
+      yang: result.base_hexagram.lines.filter((line) => line.polarity === 'yang').length,
+      moving: result.moving_lines.length,
+    },
+    notes: ['旧版六爻记录未包含 Milestone 12 解释层。'],
+  };
+  const modeLabel = meta.mode === 'time' ? '时间起卦' : meta.mode === 'number' ? '数字起卦' : '手动起卦';
   return (
     <>
       <SummaryCard
         title="摘要"
         items={[
+          { label: '起卦方式', value: modeLabel },
           { label: '本卦', value: result.base_hexagram.name },
           { label: '变卦', value: result.changed_hexagram.name },
           { label: '动爻', value: result.moving_lines.length ? result.moving_lines.join('、') : '无' },
+          { label: '五行关系', value: wuxing.relation_arrow },
+          { label: '算法版本', value: meta.algorithmVersion },
         ]}
       />
       <section className="surface result-section">
         <div className="section-title">
           <h2>六爻盘</h2>
-          <span>自下而上输入</span>
+          <span>{modeLabel} · 自下而上</span>
         </div>
         <div className="hexagram-grid">
           <HexagramView title="本卦" hexagram={result.base_hexagram} />
           <HexagramView title="变卦" hexagram={result.changed_hexagram} />
+        </div>
+      </section>
+      <section className="surface result-section">
+        <div className="section-title">
+          <h2>五行关系</h2>
+          <span>{wuxing.relation}</span>
+        </div>
+        <div className="interpretation-grid">
+          <div className="inference-card">
+            <span>本卦五行</span>
+            <strong>
+              {wuxing.base_upper_trigram} / {wuxing.base_element}
+            </strong>
+          </div>
+          <div className="inference-card">
+            <span>变卦五行</span>
+            <strong>
+              {wuxing.changed_upper_trigram} / {wuxing.changed_element}
+            </strong>
+          </div>
+          <div className="inference-card wide">
+            <span>生克箭头</span>
+            <strong>{wuxing.relation_arrow}</strong>
+          </div>
+        </div>
+      </section>
+      <section className="surface result-section">
+        <div className="section-title">
+          <h2>基础解释</h2>
+          <span>{interpretation.movement_pattern}</span>
+        </div>
+        <div className="interpretation-grid">
+          <div className="inference-card">
+            <span>本变关系</span>
+            <strong>{interpretation.same_hexagram ? '本变同卦' : '本卦变卦不同'}</strong>
+          </div>
+          <div className="inference-card">
+            <span>阴阳比例</span>
+            <strong>
+              阴 {interpretation.yin_yang_ratio.yin} / 阳 {interpretation.yin_yang_ratio.yang}
+            </strong>
+          </div>
+          <div className="inference-card wide">
+            <span>规则说明</span>
+            <p>{interpretation.notes.join('；')}</p>
+          </div>
         </div>
       </section>
     </>

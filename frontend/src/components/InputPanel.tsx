@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RotateCcw, Send } from 'lucide-react';
 import type { AppMode, AppResult, LiurenMode } from '../appTypes';
-import { calculateLiurenV1, calculateManualLiuyao, type AskerGender, type QuestionCategory, type QuestionIntent } from '../calculators';
+import { calculateLiurenV1, calculateManualLiuyao, calculateNumberLiuyao, calculateTimeLiuyao, type AskerGender, type LiuyaoMode, type QuestionCategory, type QuestionIntent } from '../calculators';
 import { XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
 import { calculateXiaoLiurenMilestone2 } from '../features/xiaoliuren';
 
@@ -74,6 +74,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
   const [askerGender, setAskerGender] = useState<AskerGender>('unknown');
   const [askerBirthTime, setAskerBirthTime] = useState('');
   const [askerDaymaster, setAskerDaymaster] = useState('');
+  const [liuyaoMode, setLiuyaoMode] = useState<LiuyaoMode>('time');
+  const [liuyaoNumbers, setLiuyaoNumbers] = useState('');
   const [manualLines, setManualLines] = useState([7, 8, 7, 8, 7, 8]);
   const [xiaoMethod, setXiaoMethod] = useState<XiaoLiurenMethod>('time');
   const [manualLunarMonth, setManualLunarMonth] = useState(1);
@@ -91,6 +93,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     setAskerGender('unknown');
     setAskerBirthTime('');
     setAskerDaymaster('');
+    setLiuyaoMode('time');
+    setLiuyaoNumbers('');
     onLiurenModeChange('daliuren');
     setManualLines([7, 8, 7, 8, 7, 8]);
     setXiaoMethod('time');
@@ -107,7 +111,11 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     try {
       const result =
         mode === 'liuyao'
-          ? calculateManualLiuyao(manualLines, questionText)
+          ? liuyaoMode === 'time'
+            ? calculateTimeLiuyao({ datetime: questionTime, timezone }, questionText)
+            : liuyaoMode === 'number'
+              ? calculateNumberLiuyao({ numbers: liuyaoNumbers }, questionText)
+              : calculateManualLiuyao(manualLines, questionText)
           : liurenMode === 'daliuren'
             ? calculateLiurenV1(questionTime, timezone, {
                 questionText,
@@ -280,24 +288,63 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
             )}
           </>
         ) : (
-          <div className="line-grid">
-            {manualLines.map((line, index) => (
-              <label className="line-select" key={index}>
-                <span>第 {index + 1} 爻</span>
-                <select
-                  value={line}
-                  onChange={(event) => setManualLines(manualLines.map((value, valueIndex) => (valueIndex === index ? Number(event.target.value) : value)))}
-                >
-                  {LINE_OPTIONS.map((option) => (
-                    <option value={option.value} key={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <small>{LINE_OPTIONS.find((option) => option.value === line)?.hint}</small>
+          <>
+            <div className="mode-heading">
+              <strong>六爻</strong>
+              <span>{liuyaoMode === 'time' ? '时间起卦' : liuyaoMode === 'number' ? '数字起卦' : '手动起卦'}</span>
+            </div>
+            <div className="method-toggle three" role="radiogroup" aria-label="六爻起卦方式">
+              <button type="button" className={liuyaoMode === 'time' ? 'active' : ''} onClick={() => setLiuyaoMode('time')}>
+                时间起卦
+              </button>
+              <button type="button" className={liuyaoMode === 'number' ? 'active' : ''} onClick={() => setLiuyaoMode('number')}>
+                数字起卦
+              </button>
+              <button type="button" className={liuyaoMode === 'manual' ? 'active' : ''} onClick={() => setLiuyaoMode('manual')}>
+                手动起卦
+              </button>
+            </div>
+            <label className="field">
+              <span>问题文本</span>
+              <textarea value={questionText} onChange={(event) => setQuestionText(event.target.value)} rows={4} placeholder="可选，用于记录起卦问题。" />
+            </label>
+            {liuyaoMode === 'time' ? (
+              <>
+                <label className="field">
+                  <span>日期时间</span>
+                  <input type="datetime-local" value={questionTime} onChange={(event) => setQuestionTime(event.target.value)} required />
+                </label>
+                <label className="field">
+                  <span>时区</span>
+                  <input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+                </label>
+              </>
+            ) : liuyaoMode === 'number' ? (
+              <label className="field">
+                <span>数字</span>
+                <input value={liuyaoNumbers} onChange={(event) => setLiuyaoNumbers(event.target.value)} placeholder="例如：123456 / 1 3 5 7 9 2 / 88,27,63" required />
               </label>
-            ))}
-          </div>
+            ) : (
+              <div className="line-grid">
+                {manualLines.map((line, index) => (
+                  <label className="line-select" key={index}>
+                    <span>第 {index + 1} 爻</span>
+                    <select
+                      value={line}
+                      onChange={(event) => setManualLines(manualLines.map((value, valueIndex) => (valueIndex === index ? Number(event.target.value) : value)))}
+                    >
+                      {LINE_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <small>{LINE_OPTIONS.find((option) => option.value === line)?.hint}</small>
+                  </label>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         <div className="button-row">

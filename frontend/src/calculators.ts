@@ -3,6 +3,7 @@ import { analyzeDaliurenTiming, type TimingAnalysis } from './engines/timing';
 
 export type ChartMode = 'liuyao' | 'liuren';
 export type LinePolarity = 'yin' | 'yang';
+export type LiuyaoMode = 'manual' | 'time' | 'number';
 
 export type LineState = {
   position: number;
@@ -20,18 +21,63 @@ export type Hexagram = {
   lines: LineState[];
 };
 
+export type LiuyaoMeta = {
+  mode: LiuyaoMode;
+  sourceInput?: string;
+  generatedAt?: string;
+  algorithmVersion: string;
+};
+
+export type LiuyaoTimeMode = {
+  datetime: string;
+  timezone: string;
+};
+
+export type LiuyaoNumberMode = {
+  numbers: string;
+};
+
+export type LiuyaoWuxingRelation = '生' | '克' | '比和';
+
+export type LiuyaoWuxingAnalysis = {
+  base_upper_trigram: string;
+  base_lower_trigram: string;
+  changed_upper_trigram: string;
+  changed_lower_trigram: string;
+  base_element: string;
+  changed_element: string;
+  relation: LiuyaoWuxingRelation;
+  relation_arrow: string;
+  direction: 'base_to_changed' | 'changed_to_base' | 'same';
+};
+
+export type LiuyaoInterpretation = {
+  movement_pattern: '静卦' | '动卦';
+  same_hexagram: boolean;
+  wuxing_summary: string;
+  yin_yang_ratio: {
+    yin: number;
+    yang: number;
+    moving: number;
+  };
+  notes: string[];
+};
+
 export type LiuYaoResult = {
   type: 'liu_yao';
   milestone: number;
   input: {
-    method: 'manual';
+    method: LiuyaoMode;
     manual_lines: number[];
     line_order: 'bottom_to_top';
     question_text?: string;
   };
+  meta: LiuyaoMeta;
   base_hexagram: Hexagram;
   changed_hexagram: Hexagram;
   moving_lines: number[];
+  wuxing: LiuyaoWuxingAnalysis;
+  interpretation: LiuyaoInterpretation;
   debug_trace: string[];
 };
 
@@ -195,6 +241,17 @@ const TRIGRAMS = new Map<string, string>([
   ['001', '艮'],
   ['000', '坤'],
 ]);
+
+const TRIGRAM_ELEMENTS: Record<string, string> = {
+  乾: '金',
+  兑: '金',
+  震: '木',
+  巽: '木',
+  坎: '水',
+  离: '火',
+  坤: '土',
+  艮: '土',
+};
 
 const HEXAGRAMS: Record<string, [number, string]> = {
   '乾/乾': [1, '乾为天'],
@@ -423,27 +480,193 @@ function buildHexagramFromBits(bits: number[], sourceValues?: number[]): Hexagra
   };
 }
 
-export function calculateManualLiuyao(manualLines: number[], questionText = ''): LiuYaoResult {
+function splitDigitsIntoSixGroups(digits: string) {
+  const baseSize = Math.floor(digits.length / 6);
+  const extra = digits.length % 6;
+  const groups: string[] = [];
+  let cursor = 0;
+  for (let index = 0; index < 6; index += 1) {
+    const size = baseSize + (index < extra ? 1 : 0);
+    groups.push(digits.slice(cursor, cursor + size) || '0');
+    cursor += size;
+  }
+  return groups;
+}
+
+function normalizeDatetimeDigits(datetime: string) {
+  const digits = datetime.replace(/\D/g, '');
+  if (digits.length < 12) throw new Error('时间起卦需要包含年月日时分。');
+  return digits.length === 12 ? `${digits}00` : digits;
+}
+
+function lineFromTimeGroup(group: string) {
+  const value = Number(group);
+  const isYang = value % 2 === 1;
+  const remainder = value % 4;
+  if (isYang) return remainder === 1 ? 9 : 7;
+  return remainder === 0 ? 6 : 8;
+}
+
+function forceMovingLine(line: number) {
+  if (line === 7) return 9;
+  if (line === 8) return 6;
+  return line;
+}
+
+function extractNumberDigits(numbers: string) {
+  return [...numbers.replace(/\D/g, '')].map((digit) => Number(digit));
+}
+
+function normalizeLiuyaoLines(manualLines: number[]) {
   if (manualLines.length !== 6 || manualLines.some((line) => ![6, 7, 8, 9].includes(line))) {
     throw new Error('六爻输入必须正好包含 6 个值，且只能是 6、7、8、9。');
   }
+  return manualLines;
+}
+
+function liuyaoWuxingRelation(baseElement: string, changedElement: string): Pick<LiuyaoWuxingAnalysis, 'relation' | 'relation_arrow' | 'direction'> {
+  if (baseElement === changedElement) {
+    return { relation: '比和', relation_arrow: `${baseElement} -> 比和 ${changedElement}`, direction: 'same' };
+  }
+  if (GENERATES[baseElement] === changedElement) {
+    return { relation: '生', relation_arrow: `${baseElement} -> 生 ${changedElement}`, direction: 'base_to_changed' };
+  }
+  if (CONTROLS[baseElement] === changedElement) {
+    return { relation: '克', relation_arrow: `${baseElement} -> 克 ${changedElement}`, direction: 'base_to_changed' };
+  }
+  if (GENERATES[changedElement] === baseElement) {
+    return { relation: '生', relation_arrow: `${changedElement} -> 生 ${baseElement}`, direction: 'changed_to_base' };
+  }
+  return { relation: '克', relation_arrow: `${changedElement} -> 克 ${baseElement}`, direction: 'changed_to_base' };
+}
+
+function analyzeLiuyaoWuxing(baseHexagram: Hexagram, changedHexagram: Hexagram): LiuyaoWuxingAnalysis {
+  const baseElement = TRIGRAM_ELEMENTS[baseHexagram.upper_trigram];
+  const changedElement = TRIGRAM_ELEMENTS[changedHexagram.upper_trigram];
+  return {
+    base_upper_trigram: baseHexagram.upper_trigram,
+    base_lower_trigram: baseHexagram.lower_trigram,
+    changed_upper_trigram: changedHexagram.upper_trigram,
+    changed_lower_trigram: changedHexagram.lower_trigram,
+    base_element: baseElement,
+    changed_element: changedElement,
+    ...liuyaoWuxingRelation(baseElement, changedElement),
+  };
+}
+
+function interpretLiuyao(baseHexagram: Hexagram, changedHexagram: Hexagram, movingLines: number[], wuxing: LiuyaoWuxingAnalysis): LiuyaoInterpretation {
+  const yin = baseHexagram.lines.filter((line) => line.polarity === 'yin').length;
+  const yang = baseHexagram.lines.length - yin;
+  const movementPattern = movingLines.length ? '动卦' : '静卦';
+  const sameHexagram = baseHexagram.number === changedHexagram.number;
+  const notes = [
+    movementPattern === '静卦' ? '六爻皆静，先看本卦结构。' : `有${movingLines.length}个动爻，需同时看本卦与变卦。`,
+    sameHexagram ? '本卦与变卦相同，事情结构变化较少。' : '本卦已转入变卦，事情存在变化路径。',
+    `本卦上卦五行为${wuxing.base_element}，变卦上卦五行为${wuxing.changed_element}。`,
+    yang > yin ? '阳爻偏多，外显与推进性较强。' : yin > yang ? '阴爻偏多，收敛与承载性较强。' : '阴阳数量平衡。',
+  ];
+  return {
+    movement_pattern: movementPattern,
+    same_hexagram: sameHexagram,
+    wuxing_summary: wuxing.relation_arrow,
+    yin_yang_ratio: {
+      yin,
+      yang,
+      moving: movingLines.length,
+    },
+    notes,
+  };
+}
+
+function buildLiuyaoResult(manualLines: number[], questionText: string, meta: LiuyaoMeta, trace: string[]): LiuYaoResult {
+  const normalizedLines = normalizeLiuyaoLines(manualLines);
   const baseBits = manualLines.map(lineToBit);
   const changedBits = manualLines.map((line) => (isMoving(line) ? 1 - lineToBit(line) : lineToBit(line)));
   const movingLines = manualLines.map((line, index) => (isMoving(line) ? index + 1 : 0)).filter(Boolean);
+  const baseHexagram = buildHexagramFromBits(baseBits, manualLines);
+  const changedHexagram = buildHexagramFromBits(changedBits);
+  const wuxing = analyzeLiuyaoWuxing(baseHexagram, changedHexagram);
+  const interpretation = interpretLiuyao(baseHexagram, changedHexagram, movingLines, wuxing);
   return {
     type: 'liu_yao',
-    milestone: 1,
-    input: { method: 'manual', manual_lines: manualLines, line_order: 'bottom_to_top', question_text: questionText },
-    base_hexagram: buildHexagramFromBits(baseBits, manualLines),
-    changed_hexagram: buildHexagramFromBits(changedBits),
+    milestone: 12,
+    input: { method: meta.mode, manual_lines: normalizedLines, line_order: 'bottom_to_top', question_text: questionText },
+    meta,
+    base_hexagram: baseHexagram,
+    changed_hexagram: changedHexagram,
     moving_lines: movingLines,
+    wuxing,
+    interpretation,
     debug_trace: [
+      `liuyao_meta=${JSON.stringify(meta)}`,
+      ...trace,
       `manual_lines(bottom_to_top)=${JSON.stringify(manualLines)}`,
       `base_bits(bottom_to_top)=${JSON.stringify(baseBits)}`,
       `changed_bits(bottom_to_top)=${JSON.stringify(changedBits)}`,
       `moving_lines=${JSON.stringify(movingLines)}`,
+      `wuxing=${wuxing.relation_arrow}`,
+      `interpretation=${interpretation.movement_pattern};yin=${interpretation.yin_yang_ratio.yin};yang=${interpretation.yin_yang_ratio.yang}`,
     ],
   };
+}
+
+export function calculateManualLiuyao(manualLines: number[], questionText = ''): LiuYaoResult {
+  return buildLiuyaoResult(manualLines, questionText, {
+    mode: 'manual',
+    sourceInput: JSON.stringify(manualLines),
+    algorithmVersion: 'liuyao-manual-v1',
+  }, ['mode=manual', 'manual_rule=direct 6/7/8/9 input']);
+}
+
+export function calculateTimeLiuyao(input: LiuyaoTimeMode, questionText = ''): LiuYaoResult {
+  if (input.timezone !== 'Asia/Shanghai') {
+    throw new Error('静态网页版本当前按 Asia/Shanghai 记录时间起卦；请使用 Asia/Shanghai。');
+  }
+  const digits = normalizeDatetimeDigits(input.datetime);
+  const groups = splitDigitsIntoSixGroups(digits);
+  const initialLines = groups.map(lineFromTimeGroup);
+  const digitSum = [...digits].reduce((sum, digit) => sum + Number(digit), 0);
+  const movingPosition = digitSum % 6 || 6;
+  const lines = initialLines.map((line, index) => (index + 1 === movingPosition ? forceMovingLine(line) : line));
+  return buildLiuyaoResult(lines, questionText, {
+    mode: 'time',
+    sourceInput: input.datetime,
+    generatedAt: input.datetime,
+    algorithmVersion: 'liuyao-time-v1',
+  }, [
+    'mode=time',
+    `time_digits=${digits}`,
+    `time_groups=${JSON.stringify(groups)}`,
+    `initial_lines_by_group=${JSON.stringify(initialLines)}`,
+    `digit_sum=${digitSum}`,
+    `moving_position_by_sum_mod_6=${movingPosition}`,
+    `final_lines=${JSON.stringify(lines)}`,
+  ]);
+}
+
+export function calculateNumberLiuyao(input: LiuyaoNumberMode, questionText = ''): LiuYaoResult {
+  const digits = extractNumberDigits(input.numbers);
+  if (!digits.length) throw new Error('数字起卦需要至少输入一个数字。');
+  const total = digits.reduce((sum, digit) => sum + digit, 0);
+  const movingPosition = total % 6 || 6;
+  const lines = Array.from({ length: 6 }, (_, index) => {
+    const digit = digits[index % digits.length];
+    const isYang = digit % 2 === 1;
+    if (index + 1 === movingPosition) return isYang ? 9 : 6;
+    return isYang ? 7 : 8;
+  });
+  return buildLiuyaoResult(lines, questionText, {
+    mode: 'number',
+    sourceInput: input.numbers,
+    generatedAt: new Date().toISOString(),
+    algorithmVersion: 'liuyao-number-v1',
+  }, [
+    'mode=number',
+    `number_digits=${JSON.stringify(digits)}`,
+    `digit_total=${total}`,
+    `moving_position_by_total_mod_6=${movingPosition}`,
+    `cyclic_digit_mapping=${JSON.stringify(lines.map((line, index) => ({ position: index + 1, digit: digits[index % digits.length], line })))}`,
+  ]);
 }
 
 function parseQuestionTime(questionTime: string) {
