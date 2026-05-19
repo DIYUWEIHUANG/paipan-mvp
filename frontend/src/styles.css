@@ -134,8 +134,14 @@ button {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: #fbfbfa;
+  cursor: pointer;
   padding: 10px 12px;
   text-align: left;
+}
+
+.record-item:focus-visible {
+  outline: 3px solid rgba(22, 78, 99, 0.18);
+  outline-offset: 2px;
 }
 
 .record-item:hover {

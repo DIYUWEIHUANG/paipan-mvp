@@ -45,8 +45,21 @@ export function RecordPanel({ records, feedbacksByRecordId, onLoad, onFeedback, 
         {records.length ? (
           records.map((record) => {
             const feedback = feedbacksByRecordId[record.id];
+            const loadRecord = () => onLoad(record.result);
             return (
-              <article className="record-item" key={record.id}>
+              <article
+                className="record-item"
+                key={record.id}
+                role="button"
+                tabIndex={0}
+                onClick={loadRecord}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    loadRecord();
+                  }
+                }}
+              >
                 <span className="record-meta">
                   <Clock3 size={14} aria-hidden="true" />
                   {formatRecordTime(record.createdAt)} · {record.modeLabel}
@@ -58,10 +71,24 @@ export function RecordPanel({ records, feedbacksByRecordId, onLoad, onFeedback, 
                   {feedback && <small>更新于 {formatRecordTime(feedback.feedbackAt)}</small>}
                 </div>
                 <div className="record-actions">
-                  <button className="secondary-button compact-button" type="button" onClick={() => onLoad(record.result)}>
+                  <button
+                    className="secondary-button compact-button"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      loadRecord();
+                    }}
+                  >
                     查看结果
                   </button>
-                  <button className="secondary-button compact-button" type="button" onClick={() => onFeedback(record)}>
+                  <button
+                    className="secondary-button compact-button"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onFeedback(record);
+                    }}
+                  >
                     {feedback ? '编辑反馈' : '填写反馈'}
                   </button>
                 </div>

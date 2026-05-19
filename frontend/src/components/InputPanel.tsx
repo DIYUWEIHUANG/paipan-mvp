@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { RotateCcw, Send } from 'lucide-react';
 import type { AppMode, AppResult, LiurenMode } from '../appTypes';
 import { calculateLiurenV1, calculateManualLiuyao, calculateNumberLiuyao, calculateTimeLiuyao, type AskerGender, type LiuyaoMode, type QuestionCategory, type QuestionIntent } from '../calculators';
@@ -61,6 +61,49 @@ function localDateTimeInput() {
   return local.toISOString().slice(0, 16);
 }
 
+function datetimeForInput(value: string | undefined) {
+  if (!value) return '';
+  return value.slice(0, 16);
+}
+
+function isQuestionCategory(value: unknown): value is QuestionCategory {
+  return QUESTION_CATEGORY_OPTIONS.some((option) => option.value === value);
+}
+
+function isQuestionIntent(value: unknown): value is QuestionIntent {
+  return QUESTION_INTENT_OPTIONS.some((option) => option.value === value);
+}
+
+function resultQuestionText(result: AppResult) {
+  if (result.type === 'da_liuren') return result.input.questionText || result.input.question_text || '';
+  if (result.type === 'liu_yao') return result.input.questionText || result.input.question_text || '';
+  return result.input.question_text || '';
+}
+
+function resultQuestionCategory(result: AppResult): QuestionCategory {
+  const value =
+    result.type === 'da_liuren'
+      ? result.input.questionCategory
+      : result.type === 'liu_yao'
+        ? result.input.questionCategory
+        : result.input.questionCategory;
+  return isQuestionCategory(value) ? value : 'general';
+}
+
+function resultQuestionIntent(result: AppResult): QuestionIntent {
+  const value =
+    result.type === 'da_liuren'
+      ? result.input.questionIntent
+      : result.type === 'liu_yao'
+        ? result.input.questionIntent
+        : result.input.questionIntent;
+  return isQuestionIntent(value) ? value : 'trend';
+}
+
+function resultName(result: AppResult) {
+  return 'nameProfile' in result && result.nameProfile && typeof result.nameProfile === 'object' && 'name' in result.nameProfile ? String(result.nameProfile.name || '') : '';
+}
+
 type InputPanelProps = {
   mode: AppMode;
   liurenMode: LiurenMode;
@@ -92,6 +135,45 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
   const [nameStatus, setNameStatus] = useState('');
   const [llmStatus, setLlmStatus] = useState('');
   const submitLabel = mode === 'liuyao' ? '生成六爻' : liurenMode === 'daliuren' ? '生成大六壬 V1' : '生成小六壬';
+
+  useEffect(() => {
+    if (!currentResult) return;
+    setQuestionText(resultQuestionText(currentResult));
+    setQuestionCategory(resultQuestionCategory(currentResult));
+    setQuestionIntent(resultQuestionIntent(currentResult));
+    setAskerName(resultName(currentResult));
+    setError('');
+    setNameStatus('');
+    setLlmStatus('');
+
+    if (currentResult.type === 'da_liuren') {
+      setQuestionTime(datetimeForInput(currentResult.input.question_time) || localDateTimeInput());
+      setTimezone(currentResult.input.timezone || 'Asia/Shanghai');
+      setAskerGender(currentResult.input.asker?.gender ?? 'unknown');
+      setAskerBirthTime(datetimeForInput(currentResult.input.asker?.birth_time));
+      setAskerDaymaster(currentResult.input.asker?.daymaster ?? '');
+      return;
+    }
+
+    if (currentResult.type === 'xiao_liuren') {
+      setXiaoMethod(currentResult.input.method);
+      setQuestionTime(datetimeForInput(currentResult.input.question_time) || localDateTimeInput());
+      setTimezone(currentResult.input.timezone || 'Asia/Shanghai');
+      if (currentResult.input.manual_lunar) {
+        setManualLunarMonth(currentResult.input.manual_lunar.month);
+        setManualLunarDay(currentResult.input.manual_lunar.day);
+        setManualHourBranch(currentResult.input.manual_lunar.hour_branch);
+      }
+      return;
+    }
+
+    const fingerprint = 'input_fingerprint' in currentResult ? currentResult.input_fingerprint : undefined;
+    setLiuyaoMode(currentResult.input.method);
+    setManualLines(currentResult.input.manual_lines);
+    setQuestionTime(datetimeForInput(fingerprint?.datetime) || localDateTimeInput());
+    setTimezone(fingerprint?.timezone || 'Asia/Shanghai');
+    setLiuyaoNumbers(currentResult.input.method === 'number' ? fingerprint?.sourceInput ?? '' : '');
+  }, [currentResult]);
 
   function clearForm() {
     setQuestionTime(localDateTimeInput());
