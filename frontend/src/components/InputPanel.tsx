@@ -3,7 +3,7 @@ import { RotateCcw, Send } from 'lucide-react';
 import type { AppMode, AppResult, LiurenMode } from '../appTypes';
 import { calculateLiurenV1, calculateManualLiuyao, calculateNumberLiuyao, calculateTimeLiuyao, type AskerGender, type LiuyaoMode, type QuestionCategory, type QuestionIntent } from '../calculators';
 import { XIAOLIUREN_HOUR_BRANCHES, type XiaoLiurenMethod } from '../engines/xiaoliuren';
-import { analyzeNameWuxing, enhanceInterpretation, hasRemoteBackend } from '../feedback/remote';
+import { analyzeNameWuxing, enhanceInterpretation, getStoredAdminToken, hasRemoteBackend } from '../feedback/remote';
 import { calculateXiaoLiurenMilestone2 } from '../features/xiaoliuren';
 import { attachLlmInterpretation, buildLlmEnhancePayload } from '../interpretation/llmInterpretation';
 import { buildNameWuxingProfile, personalizeChart } from '../personalization/personalizedChart';
@@ -134,6 +134,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
   const [error, setError] = useState('');
   const [nameStatus, setNameStatus] = useState('');
   const [llmStatus, setLlmStatus] = useState('');
+  const [nameBusy, setNameBusy] = useState(false);
+  const [llmBusy, setLlmBusy] = useState(false);
   const submitLabel = mode === 'liuyao' ? '生成六爻' : liurenMode === 'daliuren' ? '生成大六壬 V1' : '生成小六壬';
 
   useEffect(() => {
@@ -196,6 +198,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     setError('');
     setNameStatus('');
     setLlmStatus('');
+    setNameBusy(false);
+    setLlmBusy(false);
     onClear();
   }
 
@@ -256,7 +260,12 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
       setError('姓名五行需要私有后端 VITE_API_BASE_URL。');
       return;
     }
+    if (!getStoredAdminToken()) {
+      setError('姓名五行需要先在“管理员模式”保存 X-Admin-Token。');
+      return;
+    }
     setNameStatus('正在分析姓名五行...');
+    setNameBusy(true);
     try {
       const apiProfile = await analyzeNameWuxing(askerName.trim());
       const nameProfile = buildNameWuxingProfile(apiProfile);
@@ -265,6 +274,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setNameStatus('');
+    } finally {
+      setNameBusy(false);
     }
   }
 
@@ -279,7 +290,12 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
       setError('LLM 解读需要私有后端 VITE_API_BASE_URL。');
       return;
     }
+    if (!getStoredAdminToken()) {
+      setError('LLM 解读需要先在“管理员模式”保存 X-Admin-Token。');
+      return;
+    }
     setLlmStatus('正在生成 LLM 优化解读...');
+    setLlmBusy(true);
     try {
       const interpretation = await enhanceInterpretation(buildLlmEnhancePayload(currentResult));
       onResult(attachLlmInterpretation(currentResult, interpretation));
@@ -287,6 +303,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setLlmStatus('');
+    } finally {
+      setLlmBusy(false);
     }
   }
 
@@ -546,8 +564,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
             <span>姓名</span>
             <input value={askerName} onChange={(event) => setAskerName(event.target.value)} placeholder="例如：杨丙辰" />
           </label>
-          <button className="secondary-button" type="button" onClick={analyzeCurrentName} disabled={!currentResult || !askerName.trim()}>
-            分析姓名五行
+          <button className="secondary-button" type="button" onClick={analyzeCurrentName} disabled={!currentResult || !askerName.trim() || nameBusy}>
+            {nameBusy ? '分析中...' : '分析姓名五行'}
           </button>
           {nameStatus && <p className="hint-text">{nameStatus}</p>}
         </div>
@@ -557,8 +575,8 @@ export function InputPanel({ mode, liurenMode, onModeChange, onLiurenModeChange,
             <strong>LLM 解读优化</strong>
             <span>Milestone 15</span>
           </div>
-          <button className="secondary-button" type="button" onClick={enhanceCurrentInterpretation} disabled={!currentResult}>
-            生成优化建议
+          <button className="secondary-button" type="button" onClick={enhanceCurrentInterpretation} disabled={!currentResult || llmBusy}>
+            {llmBusy ? '生成中...' : '生成优化建议'}
           </button>
           {llmStatus && <p className="hint-text">{llmStatus}</p>}
         </div>

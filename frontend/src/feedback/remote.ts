@@ -4,6 +4,7 @@ import type { NameWuxingApiResult } from '../personalization/types';
 import type { DivinationFeedback, DivinationRecord, FeedbackStats } from './types';
 
 export const ADMIN_TOKEN_STORAGE_KEY = 'paipan.adminToken.v1';
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export type AdminRecord = DivinationRecord & {
   questionText: string;
@@ -53,13 +54,21 @@ async function requestJson<T>(path: string, init: RequestInit = {}, adminToken =
   if (adminToken) headers.set('X-Admin-Token', adminToken);
 
   let response: Response;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers,
+      signal: controller.signal,
     });
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('私有后端请求超时：请检查服务器 8002 端口是否正在运行，并确认防火墙/安全组已放行。');
+    }
     throw backendRequestError(baseUrl, error);
+  } finally {
+    window.clearTimeout(timeout);
   }
   if (!response.ok) {
     const text = await response.text();
